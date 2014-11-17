@@ -4,7 +4,7 @@ mainmodule neuralNetwork {
   readonly CProxy_Main mainProxy;
   /*
     Vector containing all the layers Proxies.
-    This is neccesary for accessing the chares on the different layers 
+    This is neccesary for accessing the chares on the different layers
   */
   readonly std::vector<CProxy_NeuronGroup> layerProxies;
   readonly std::map<unsigned int, unsigned int> mapLayerToNeurons;
@@ -16,7 +16,7 @@ mainmodule neuralNetwork {
   readonly unsigned int neuronsPerChare;
   readonly unsigned int totalLayers;
 
-  mainchare Main {  
+  mainchare Main {
     entry Main(CkArgMsg* m);
     /*
       Reduction target after the forward operation
@@ -42,7 +42,9 @@ mainmodule neuralNetwork {
     entry void activate();
     entry void sayHello();
     entry void collectValues();
-    entry void calculateError();
+    entry void calculateError(bool isHidden=false);
+    entry void updateWeight();
+    entry vector<float> readTarget();
 
     //Main computation
     entry void runForward() {
@@ -51,7 +53,7 @@ mainmodule neuralNetwork {
         for(iteration=0; iteration<ITERATION; iteration++){
 
           /*
-            Prepare the input for the iteraion
+            Prepare the input for the iteration
             This is loading each pixel of the image, to be send
             to the input layer.
           */
@@ -62,14 +64,14 @@ mainmodule neuralNetwork {
               collectValues();
               layerProxies.at(1).sendForward(iteration, layerIndex, thisIndex, values );
             }
-            
+
           }
 
           if (layerIndex > 0 && layerIndex < totalLayers - 1) //Hidden Layers
           {
 
             forall [block](0: mapLayerToNeurons[layerIndex - 1]/neuronsPerChare -1,1) //Receiving from all the chares in layer-1
-              when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> values  ) 
+              when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> values  )
               serial "receiveAndsend" {
               //Receives from layer layerIndex - 1
 
@@ -82,8 +84,8 @@ mainmodule neuralNetwork {
               }
 
               serial {
-                  /*
-                    Do the wieght operation and deliver the weigh value to each cell 
+                 /*
+                  *  Do the weight operation and deliver the weight value to each cell
                   */
                   activate();
                   collectValues();
@@ -94,8 +96,8 @@ mainmodule neuralNetwork {
 
           if (layerIndex == totalLayers - 1) //output Layer
           {
-            forall [block](0: middleLayersNeurons/neuronsPerChare -1,1) 
-              when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> value  )  
+            forall [block](0: middleLayersNeurons/neuronsPerChare -1,1)
+              when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> value  )
                 //Receives from layer thisLayerIndex - 1
                 serial "recevingLastLayer" {
                   //calculateError(...);
@@ -114,7 +116,7 @@ mainmodule neuralNetwork {
                 }
 
               //Forward Sync
-              //contribute(); //We use reduction as a sync barrier 
+              //contribute(); //We use reduction as a sync barrier
           }
 
         }//end of the iteration loop
@@ -126,8 +128,8 @@ mainmodule neuralNetwork {
     //     if (thisLayerIndex == 0) // Input Layer
     //     {
     //       forall ( ... ) //Receiving from all the neurons
-    //       { 
-    //         when sendBackward(int thisLayerIndex - 1)  
+    //       {
+    //         when sendBackward(int thisLayerIndex - 1)
     //           //Receives from layer thisLayerIndex - 1
     //           serial "updateWeight" {
     //             /*
@@ -136,24 +138,25 @@ mainmodule neuralNetwork {
     //           }
     //         }
     //       //Backward sync
-    //       contribute(); //We use reduction as a sync barrier 
+    //       contribute(); //We use reduction as a sync barrier
     //     }
 
     //     if (thisLayerIndex > 0 && thisLayerIndex < nLayers - 1) //Hidden Layers
     //     {
-    //       forall ( ... ) //Receiving from all the neurons
-    //       { 
-    //         when sendBackward(int thisLayerIndex - 1)  
-    //           //Receives from layer thisLayerIndex - 1
-    //           serial "sendToNextLayer" {
+    //       forall [block](0: mapLayerToNeurons[layerIndex - 1]/neuronsPerChare -1,1) //Receiving from all the neurons
+    //        when sendBackward[iteration](int iter, int layer, int groupId, std::vector<double> errors){
+      //         when sendBackward(int thisLayerIndex - 1)
+      //           //Receives from layer thisLayerIndex - 1
+      //           serial "sendToNextLayer" {
 
-    //             /*
-    //               Do the weight updates
-    //             */
-
-    //             sendBackward(thisLayerIndex - 1);
-    //           }
-    //         }
+      //             /*
+      //               Do the weight updates
+      //             */
+                     calculateError(true);
+                     updateWeight();
+      //             sendBackward(thisLayerIndex - 1);
+      //           }
+      //        }
     //     }
 
     //     if (thisLayerIndex == nLayers - 1) //output Layer
@@ -161,6 +164,8 @@ mainmodule neuralNetwork {
     //       /*
     //         Do the weight updates
     //       */
+             calculateError();
+             updateWeight();
     //       sendBackward(thisLayerIndex - 1);
     //     }
 
