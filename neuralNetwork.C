@@ -5,7 +5,7 @@
 #include "liveViz.h"
 #include "pup_stl.h"
 #include "Neuron.h"
-#include "NeuralNetwork.decl.h"
+#include "neuralNetwork.decl.h"
 
 #define ITERATION (1)
 #define LB_FREQ   (10)
@@ -82,6 +82,10 @@ class Main: public CBase_Main {
           }
       }
 
+    }
+
+    void forwardComplete(){
+      
     }
 
     void totalNeurons(int total){
@@ -181,30 +185,18 @@ class NeuronGroup : public CBase_NeuronGroup {
 
     }
 
-    void calculateError(bool isHidden){
-      if (isHidden) {
-        /*
-         *calculate the error of hidden layer
-         */
-         for (int i = 0; i<neurons.size(); i++) {
-           float tmp = 0.0;
-           for (int k = 0; k<incomingErrs.size(); k++){
-             tmp += incomingErrs[k] * neurons[i].weight[k];
-           }
-           errors.push_back(values[i] * (1 - values[i]) * tmp);
-         }
-
-      } else {
-        /*
-         *calculate the error of output layer
-         */
-         vector<float> target = readTarget();
-         for (int i = 0; i<neurons.size(): i++) {
-           float err = values[i]*(1 - values[i])*(target[i] - values[i]);
-           errors.push_back(err);
-         }
+    void calculateErrors(bool isHidden){
+      for (int i=0; i < neuronsPerChare; i++){
+        neurons[i].calculateError(incomingErrs, isHidden);
       }
     }
+
+    void collectErrors (){
+      for(int i=0; i < neurons.size(); i++) {
+        errors[i] = neurons[i].error;
+      }
+    }
+    /*
     void updateWeight(){
       for (int i = 0; i<neurons.size(): i++){
         for (int j = 0; j<neurons[i].weight.size(); j++) {
@@ -212,8 +204,12 @@ class NeuronGroup : public CBase_NeuronGroup {
         }
       }
     }
+    */
+    void exportErrors(vector<vector<double> > &errorBuffer) {
+      errorBuffer.push_back(this->errors);
+    }
   private:
 
 };
 
-#include "NeuralNetwork.def.h"
+#include "neuralNetwork.def.h"
