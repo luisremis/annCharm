@@ -5,7 +5,7 @@
 #include "liveViz.h"
 #include "pup_stl.h"
 #include "Neuron.h"
-#include "NeuralNetwork.decl.h"
+#include "neuralNetwork.decl.h"
 
 #define ITERATION (1)
 #define LB_FREQ   (10)
@@ -22,7 +22,7 @@ unsigned int nMiddleLayers;
 unsigned int middleLayersNeurons;
 unsigned int outputNeurons;
 unsigned int neuronsPerChare;
-unsigned int totalLayers; 
+unsigned int totalLayers;
 /*readonly*/
 
 using namespace std;
@@ -45,7 +45,7 @@ class Main: public CBase_Main {
       neuronsPerChare     = atoi(m->argv[5]);
 
       totalLayers = nMiddleLayers + 2; //MiddleLayers, input and ouput
-     
+
       //Input Layer
       layerProxies.push_back(CProxy_NeuronGroup::ckNew(0, neuronsPerChare, ceil(inputNeurons/neuronsPerChare)) );
       mapLayerToNeurons[0] = inputNeurons;
@@ -69,7 +69,7 @@ class Main: public CBase_Main {
 
     void creationDone(){
 
-      static unsigned int counter = 0; 
+      static unsigned int counter = 0;
       ++counter;
 
       if (counter == totalLayers)
@@ -79,20 +79,24 @@ class Main: public CBase_Main {
           for (int i = 0; i < layerProxies.size(); ++i)
           {
             layerProxies.at(i).runForward(); //MAYBE SYNC PROBLEM WITH ALL THE LAYERS.
-          }    
+          }
       }
 
     }
 
+    void forwardComplete(){
+      
+    }
+
     void totalNeurons(int total){
 
-      static unsigned int counter = 0; 
+      static unsigned int counter = 0;
       ++counter;
       CkPrintf("Total neurons created %2d Counter: %d \n", total, counter);
     }
 
     void done(){
-      CkPrintf("EXIT \n"); 
+      CkPrintf("EXIT \n");
       CkExit();
     }
 
@@ -101,7 +105,7 @@ class Main: public CBase_Main {
 // This class represent the cells of the simulation.
 /// Each cell contains a vector of particle.
 // On each time step, the cell perturbs the particles and moves them to neighboring cells as necessary.
-class NeuronGroup : public CBase_NeuronGroup {  
+class NeuronGroup : public CBase_NeuronGroup {
   NeuronGroup_SDAG_CODE
 
   public:
@@ -111,15 +115,17 @@ class NeuronGroup : public CBase_NeuronGroup {
     vector<Neuron> neurons; //Maybe not needed
     vector<double> incomingAj; //Incoming values
     vector<double> values;
+    vector<double> errors;
+    vector<double> incomingErrs;
 
-    NeuronGroup(int layer, int nNeurons): 
+    NeuronGroup(int layer, int nNeurons):
                   layerIndex(layer)
     {
       __sdag_init();
       iteration = 0;
       usesAtSync=CmiTrue;
 
-      int neuronsPreviousLayer; 
+      int neuronsPreviousLayer;
 
       if (layerIndex == 0 )
         neuronsPreviousLayer = mapLayerToNeurons[0];
@@ -137,11 +143,11 @@ class NeuronGroup : public CBase_NeuronGroup {
         values.push_back(0.0f);
       }
 
-      CkCallback cb(CkReductionTarget(Main, creationDone), mainProxy); 
+      CkCallback cb(CkReductionTarget(Main, creationDone), mainProxy);
       contribute(cb);
 
       // int size = neurons.size();
-      //CkCallback cb(CkReductionTarget(Main, totalNeurons), mainProxy); 
+      //CkCallback cb(CkReductionTarget(Main, totalNeurons), mainProxy);
       //contribute(sizeof(int), &size, CkReduction::sum_int, cb);
 
       CkPrintf("Layer %2d NeuronGroup %04d has %04d Neurons \n", layerIndex, thisIndex, neurons.size());
@@ -175,12 +181,35 @@ class NeuronGroup : public CBase_NeuronGroup {
       }
     }
 
-    void calculateError(){
+    vector<float> readTarget(){
 
     }
 
+    void calculateErrors(bool isHidden){
+      for (int i=0; i < neuronsPerChare; i++){
+        neurons[i].calculateError(incomingErrs, isHidden);
+      }
+    }
+
+    void collectErrors (){
+      for(int i=0; i < neurons.size(); i++) {
+        errors[i] = neurons[i].error;
+      }
+    }
+    /*
+    void updateWeight(){
+      for (int i = 0; i<neurons.size(): i++){
+        for (int j = 0; j<neurons[i].weight.size(); j++) {
+          neurons[i].weight[j] += errors[j]*values[i];
+        }
+      }
+    }
+    */
+    void exportErrors(vector<vector<double> > &errorBuffer) {
+      errorBuffer.push_back(this->errors);
+    }
   private:
 
 };
 
-#include "NeuralNetwork.def.h"
+#include "neuralNetwork.def.h"
