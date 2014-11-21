@@ -106,7 +106,7 @@ mainmodule neuralNetwork {
                   //calculateError(...);
                   for (i = 0; i < values.size(); ++i)
                   {
-                    incomingAj.at(groupId*neuronsPerChare + i);
+                    incomingAj.at(groupId*neuronsPerChare + i)=values.at(i);
                   }
 
                   CkPrintf("Layer %2d Group %2d Receiving something from layer %2d \n", layerIndex, thisIndex, layer);
@@ -155,9 +155,9 @@ mainmodule neuralNetwork {
                 serial "receiveAndsendErrors" {
                   //Receives from layer layerIndex + 1
 
-                  for (i = 0; i < values.size(); ++i)
+                  for (i = 0; i < errors.size(); ++i)
                   {
-                    incomingAj.at(groupId*neuronsPerChare + i);
+                    incomingErrs.at(groupId*neuronsPerChare + i)=errors.at(i);
                   }
 
                   CkPrintf("Layer %2d Group %2d Receiving errors from layer %2d \n", layerIndex, thisIndex, layer);
