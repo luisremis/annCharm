@@ -15,15 +15,16 @@
 class Neuron  {
 public:
     double x;
+    double error;
     double target;
     std::vector<double> weight;
-    //std::vector<double> errorForWeight;
+
 
     Neuron(int type, unsigned int neuronsPreviousLayer) {
 
       x = 0.0f; //TODO
       error = 0.0f; //TODO
-      target = 0.0f; //TODO
+      //target = 0.0f; //TODO FOR RECODING OUTPUT
 
       for (int i = 0; i < neuronsPreviousLayer; ++i)
       {
@@ -35,7 +36,7 @@ public:
       //Constructor for output layer neuron
       x = 0.0f; //TODO
       error = 0.0f; //TODO
-      this->target = target; //TODO
+      //this->target = target; //TODO FOR RECODING OUTPUT
 
       for (int i = 0; i < neuronsPreviousLayer; ++i)
       {
@@ -77,10 +78,11 @@ public:
          for (int k = 0; k<incomingErrs.size(); k++){
            tmp += incomingErrs[k] * this->weight[k];
          }
+
          error = x * (1 - x) * tmp;
 
          for (int j = 0; j<this->weight.size(); j++) {
-           this->weight[j] += error * x;
+           this->weight[j] += incomingErrs[j] * x;
          }
 
       } else {
@@ -90,7 +92,7 @@ public:
          error = x * ( 1 - x) * (target - x);
 
          for (int j = 0; j<this->weight.size(); j++) {
-           this->weight[j] += error * x;
+           this->weight[j] += incomingErrs[j] * x;
          }
       }
     }
