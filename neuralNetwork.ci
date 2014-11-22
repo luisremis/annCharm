@@ -36,7 +36,7 @@ mainmodule neuralNetwork {
   */
   array [1D] NeuronGroup { //An array of NeuronGroup is a layer
     entry NeuronGroup(int layer, int nNeurons);
-    entry void sendForward(int iter, int layer, int groupId, std::vector<double> values);
+    entry void sendForward(int iter, int layer, int groupId, std::vector<double> incoming);
     entry void sendBackward(int iter, int layer, int groupId, std::vector<double> errors);
     //entry void sendBackward(int layer);
     //entry void calculateError();
@@ -66,6 +66,10 @@ mainmodule neuralNetwork {
             serial {
               collectValues();
               layerProxies.at(1).sendForward(iteration, layerIndex, thisIndex, values );
+              /*for (i = 0; i < values.size(); ++i)
+              {
+                 CkPrintf("value: %2f \n", values[i] );
+              }*/
             }
 
           }
@@ -74,48 +78,64 @@ mainmodule neuralNetwork {
           {
 
             forall [block](0: mapLayerToNeurons[layerIndex - 1]/neuronsPerChare -1,1) //Receiving from all the chares in layer-1
-              when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> values  )
-                serial "receiveAndsendValues" {
-              //Receives from layer layerIndex - 1
+              when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> incoming  )
+                serial "receiveAndsendValues" 
+                {   //Receives from layer layerIndex - 1
 
-                  for (i = 0; i < values.size(); ++i)
+                  for (i = 0; i < incoming.size(); ++i)
                   {
-                    incomingAj.at(groupId*neuronsPerChare + i);
+                    //CkPrintf("value: %2f \n", incoming[i] );
+                    incomingAj.at(groupId*neuronsPerChare + i)=incoming.at(i);
                   }
 
-                  CkPrintf("Layer %2d Group %2d Receiving something from layer %2d \n", layerIndex, thisIndex, layer);
+                  CkPrintf("Layer %2d Group %2d Receiving %d from layer %2d \n", layerIndex, thisIndex, incoming.size(), layer);
                 }
 
             serial {
                 /*
                  *  Do the weight operation and deliver the weight value to each cell
                  */
+                 /*for (int i = 0; i < incomingAj.size(); ++i)
+                 {
+                   CkPrintf("incom: %2f \n", incomingAj[i] );
+                 }*/
                 activate();
                 collectValues();
+                /*for (int i = 0; i < values.size(); ++i)
+                 {
+                   CkPrintf("values: %2f \n", values[i] );
+                 }*/
+
                 layerProxies.at(layerIndex + 1).sendForward(iteration, layerIndex, thisIndex, values );
-                CkPrintf("Layer %2d Done \n", layerIndex);
+                //CkPrintf("Layer %2d Done \n", layerIndex);
             }
           }
 
           if (layerIndex == totalLayers - 1) //output Layer
           {
             forall [block](0: middleLayersNeurons/neuronsPerChare -1,1)
-              when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> value  )
+              when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> incoming  )
                 //Receives from layer thisLayerIndex - 1
                 serial "recevingLastLayer" {
                   //calculateError(...);
-                  for (i = 0; i < values.size(); ++i)
+                  for (i = 0; i < incoming.size(); ++i)
                   {
-                    incomingAj.at(groupId*neuronsPerChare + i)=values.at(i);
+                    //CkPrintf("valuesRece: %2f \n", incoming[i] );
+                    incomingAj.at(groupId*neuronsPerChare + i) = incoming.at(i);
                   }
 
-                  CkPrintf("Layer %2d Group %2d Receiving something from layer %2d \n", layerIndex, thisIndex, layer);
+                  CkPrintf("Layer %2d Group %2d Receiving %d from layer %2d \n", layerIndex, thisIndex, incoming.size(), layer);
                 }
 
                 serial "calculatingError"{
 
+                  /*for (i = 0; i < incomingAj.size(); ++i)
+                  {
+                    CkPrintf("incom: %2f \n", incomingAj[i] );
+                  }*/
                   activate();
-                  calculateErrors(false);
+                  //printValues();
+                  //calculateErrors(false);
                 }
 
               //Forward Sync

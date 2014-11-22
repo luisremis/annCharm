@@ -19,31 +19,30 @@ public:
     double target;
     std::vector<double> weight;
 
-
     Neuron(int type, unsigned int neuronsPreviousLayer) {
 
-      x = 0.0f; //TODO
+      x = 1.0f; //TODO
       error = 0.0f; //TODO
       //target = 0.0f; //TODO FOR RECODING OUTPUT
 
       for (int i = 0; i < neuronsPreviousLayer; ++i)
       {
-        weight.push_back(drand48());
+        weight.push_back(1.0f);//drand48());
       }
     }
-
+/*
     Neuron(int type, unsigned int neuronsPreviousLayer, double target) {
       //Constructor for output layer neuron
-      x = 0.0f; //TODO
+      x = 1.0f; //TODO
       error = 0.0f; //TODO
       //this->target = target; //TODO FOR RECODING OUTPUT
 
       for (int i = 0; i < neuronsPreviousLayer; ++i)
       {
-        weight.push_back(drand48());
+        weight.push_back(1.0f);//drand48());
       }
     }
-
+*/
     void pup(PUP::er &p){
       p|x;
     }
@@ -53,16 +52,17 @@ public:
       if (aj.size() != weight.size())
       {
         CkPrintf("FATAL ERROR IN NEURON WEIGHT OPERATION: aj,weight %04d, %04d \n", aj.size(), weight.size());
-
       }
 
-      x = 0.0f;
+      float sum = 0.0f;
       for (int i = 0; i < weight.size(); ++i)
       {
-        x += weight.at(i) * aj.at(i);
+        sum += weight.at(i) * aj.at(i);
+        //CkPrintf("sum: %f \n", sum);
       }
 
-      x = neuronFunction(x);
+      x = neuronFunction(sum);
+      //CkPrintf("x: %f \n", x);
     }
 
     void calculateError(std::vector<double> & incomingErrs, bool isHidden){

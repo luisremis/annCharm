@@ -134,13 +134,13 @@ class NeuronGroup : public CBase_NeuronGroup {
 
       for (int i = 0; i < neuronsPreviousLayer; ++i)
       {
-        incomingAj.push_back(0.0f);
+        incomingAj.push_back(0.0f); //Just allocate the space, the value does not matter. 
       }
 
       for (int i = 0; i < nNeurons; ++i)
       {
         neurons.push_back(Neuron(0, neuronsPreviousLayer));
-        values.push_back(0.0f);
+        values.push_back(0.0f); //Just allocate the space, the value does not matter.
       }
 
       CkCallback cb(CkReductionTarget(Main, creationDone), mainProxy);
@@ -189,6 +189,14 @@ class NeuronGroup : public CBase_NeuronGroup {
       for (int i=0; i < neuronsPerChare; i++){
         neurons[i].calculateError(incomingErrs, isHidden);
       }
+    }
+
+    void printValues(){
+      
+      for (int i=0; i < neurons.size(); i++){
+        CkPrintf("Group: %d - Neuron: %d  - Value: %f \n", thisIndex, i, neurons[i].x);
+      }
+
     }
 
     void collectErrors (){
