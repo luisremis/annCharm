@@ -16,7 +16,7 @@ class Neuron  {
 public:
     double x;
     double error;
-    double target;
+    double target; //Value from the oracle vector.
     std::vector<double> weight;
 
     Neuron(int type, unsigned int neuronsPreviousLayer) {
@@ -65,36 +65,47 @@ public:
       //CkPrintf("x: %f \n", x);
     }
 
-    void calculateError(std::vector<double> & incomingErrs, bool isHidden){
-      if (incomingErrs.size() != weight.size()) {
-        CkPrintf("FATAL ERROR IN NEURON WEIGHT OPERATION: err,weight %04d, %04d \n", incomingErrs.size(), weight.size());
+    double collectError()
+    {
+      double sum =0;
+
+      for (int i = 0; i < weight.size(); ++i)
+      {
+        sum += error * weight[i];
       }
-      if (isHidden) {
-        /*
-         *calculate the error of hidden layer
-         */
 
-         float tmp = 0.0;
-         for (int k = 0; k<incomingErrs.size(); k++){
-           tmp += incomingErrs[k] * this->weight[k];
-         }
+      return sum;
+    }
 
-         error = x * (1 - x) * tmp;
+    void calculateError(std::vector<double> & incomingErrs)
+    {
+      /*
+      This function calculates the errors and updates the weight
+      */
 
-         for (int j = 0; j<this->weight.size(); j++) {
-           this->weight[j] += incomingErrs[j] * x;
-         }
-
-      } else {
-        /*
-         *calculate the error of output layer
-         */
-         error = x * ( 1 - x) * (target - x);
-
-         for (int j = 0; j<this->weight.size(); j++) {
-           this->weight[j] += incomingErrs[j] * x;
-         }
+      error = 0.0;
+      for (int i = 0; i < incomingErrs.size(); ++i){
+        error += incomingErrs[i] ;
       }
+
+      error *= x * (1 - x);
+
+      for (int i = 0; i < weight.size(); ++i) {
+        weight[i] += error * x;
+      }
+    }
+
+    void calculateOutputError(double oracle)
+    {    
+        /*
+        This function calculates the errors and updates the weight
+        of the output layer only
+        */
+        error = x * (1 - x) * (oracle - x); 
+
+        for (int i = 0; i < weight.size(); ++i) {
+          weight[i] += error * x;
+        }
     }
 
     double neuronFunction(double x){

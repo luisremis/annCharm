@@ -8,6 +8,7 @@ mainmodule neuralNetwork {
   */
   readonly std::vector<CProxy_NeuronGroup> layerProxies;
   readonly std::map<unsigned int, unsigned int> mapLayerToNeurons;
+  readonly std::vector< double > oracle;
 
   readonly unsigned int inputNeurons;
   readonly unsigned int nMiddleLayers;
@@ -36,18 +37,16 @@ mainmodule neuralNetwork {
   */
   array [1D] NeuronGroup { //An array of NeuronGroup is a layer
     entry NeuronGroup(int layer, int nNeurons);
-    entry void sendForward(int iter, int layer, int groupId, std::vector<double> incoming);
+    entry void sendForward (int iter, int layer, int groupId, std::vector<double> incoming);
     entry void sendBackward(int iter, int layer, int groupId, std::vector<double> errors);
-    //entry void sendBackward(int layer);
-    //entry void calculateError();
     entry void activate();
-    entry void sayHello();
     entry void collectValues();
+    entry void calculateOutputError();
+
     entry void collectErrors();
-    entry void calculateErrors(bool isHidden=false);
+    entry void calculateErrors();
     //entry void exportErrors(vector<vector<double>> &errorBuffer);
     //entry void updateWeight();
-
 
     //Main computation
     entry void runForward() {
@@ -66,12 +65,7 @@ mainmodule neuralNetwork {
             serial {
               collectValues();
               layerProxies.at(1).sendForward(iteration, layerIndex, thisIndex, values );
-              /*for (i = 0; i < values.size(); ++i)
-              {
-                 CkPrintf("value: %2f \n", values[i] );
-              }*/
             }
-
           }
 
           if (layerIndex > 0 && layerIndex < totalLayers - 1) //Hidden Layers
@@ -84,7 +78,6 @@ mainmodule neuralNetwork {
 
                   for (i = 0; i < incoming.size(); ++i)
                   {
-                    //CkPrintf("value: %2f \n", incoming[i] );
                     incomingAj.at(groupId*neuronsPerChare + i)=incoming.at(i);
                   }
 
@@ -95,19 +88,9 @@ mainmodule neuralNetwork {
                 /*
                  *  Do the weight operation and deliver the weight value to each cell
                  */
-                 /*for (int i = 0; i < incomingAj.size(); ++i)
-                 {
-                   CkPrintf("incom: %2f \n", incomingAj[i] );
-                 }*/
                 activate();
                 collectValues();
-                /*for (int i = 0; i < values.size(); ++i)
-                 {
-                   CkPrintf("values: %2f \n", values[i] );
-                 }*/
-
                 layerProxies.at(layerIndex + 1).sendForward(iteration, layerIndex, thisIndex, values );
-                //CkPrintf("Layer %2d Done \n", layerIndex);
             }
           }
 
@@ -120,7 +103,6 @@ mainmodule neuralNetwork {
                   //calculateError(...);
                   for (i = 0; i < incoming.size(); ++i)
                   {
-                    //CkPrintf("valuesRece: %2f \n", incoming[i] );
                     incomingAj.at(groupId*neuronsPerChare + i) = incoming.at(i);
                   }
 
@@ -128,18 +110,17 @@ mainmodule neuralNetwork {
                 }
 
                 serial "calculatingError"{
-
-                  /*for (i = 0; i < incomingAj.size(); ++i)
-                  {
-                    CkPrintf("incom: %2f \n", incomingAj[i] );
-                  }*/
                   activate();
                   //printValues();
-                  //calculateErrors(false);
+                  calculateOutputError();
                 }
+          }
 
-              //Forward Sync
-              //contribute(); //We use reduction as a sync barrier
+          if (iteration % BACKWARD_FREQ == 0)
+          {
+            serial {
+              runBackward(); //Go to backward face every BACKWARD_FREQ iterations
+            }
           }
 
         }//end of the iteration loop
@@ -149,27 +130,8 @@ mainmodule neuralNetwork {
      entry void runBackward() {
         for(iteration=0; iteration<ITERATION; iteration++){
 
-
-    //     if (thisLayerIndex == 0) // Input Layer
-    //     {
-    //       forall ( ... ) //Receiving from all the neurons
-    //       {
-    //         when sendBackward(int thisLayerIndex - 1)
-    //           //Receives from layer thisLayerIndex - 1
-    //           serial "updateWeight" {
-    //             /*
-    //               Do the weight updates
-    //             */
-    //           }
-    //         }
-    //       //Backward sync
-    //       contribute(); //We use reduction as a sync barrier
-    //     }
-
-
           if (layerIndex > 0 && layerIndex < totalLayers - 1) //Hidden Layers
           {
-
             forall [block](0: mapLayerToNeurons[layerIndex + 1]/neuronsPerChare -1,1) //Receiving from all the chares in layer-1
               when sendBackward[iteration](int iter, int layer, int groupId, std::vector<double> errors  )
                 serial "receiveAndsendErrors" {
@@ -177,9 +139,8 @@ mainmodule neuralNetwork {
 
                   for (i = 0; i < errors.size(); ++i)
                   {
-                    incomingErrs.at(groupId*neuronsPerChare + i)=errors.at(i);
+                    incomingErrs.at(groupId*neuronsPerChare + i) = errors.at(i);
                   }
-
                   CkPrintf("Layer %2d Group %2d Receiving errors from layer %2d \n", layerIndex, thisIndex, layer);
                 }
 
@@ -187,9 +148,13 @@ mainmodule neuralNetwork {
                 /*
                  *  Calculate the errors for this layer and update weights
                  */
-                calculateErrors(true);
+                calculateErrors();
                 collectErrors();
-                layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex, errors);
+                if (layerIndex - 1 != 0)
+                {
+                  layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex, errors);
+                }
+                
                 CkPrintf("Layer %2d Done \n", layerIndex);
             }
           }
@@ -197,10 +162,11 @@ mainmodule neuralNetwork {
          if (layerIndex == totalLayers - 1) //output Layer
          {
             serial {
-             /*
-               Error has been updated
-             */
-             layerProxies.at(1).sendBackward(iteration, layerIndex, thisIndex, errors );
+              /*
+               Error has been updated in the forward phase
+              */
+              collectErrors();
+              layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex, errors );
            }
          }
 

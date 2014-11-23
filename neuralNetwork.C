@@ -9,12 +9,14 @@
 
 #define ITERATION (1)
 #define LB_FREQ   (10)
+#define BACKWARD_FREQ (1)
 
 using namespace std;
 
 /*readonly*/
 CProxy_Main  mainProxy;
 std::vector<CProxy_NeuronGroup> layerProxies;
+std::vector<double> oracle;
 std::map<unsigned int, unsigned int> mapLayerToNeurons;
 
 unsigned int inputNeurons;
@@ -46,19 +48,35 @@ class Main: public CBase_Main {
 
       totalLayers = nMiddleLayers + 2; //MiddleLayers, input and ouput
 
+      //This map mas be ready when neurons gruops are created!!!
+      mapLayerToNeurons[0] = inputNeurons;
+      mapLayerToNeurons[totalLayers - 1] = outputNeurons;
+      for (int i = 0; i < nMiddleLayers; ++i)
+      { //Add middle layers
+        mapLayerToNeurons[i + 1] = middleLayersNeurons;
+      }
+
       //Input Layer
       layerProxies.push_back(CProxy_NeuronGroup::ckNew(0, neuronsPerChare, ceil(inputNeurons/neuronsPerChare)) );
-      mapLayerToNeurons[0] = inputNeurons;
 
       for (int i = 0; i < nMiddleLayers; ++i)
       { //Add middle layers
         layerProxies.push_back(CProxy_NeuronGroup::ckNew(i + 1,neuronsPerChare, ceil(middleLayersNeurons/neuronsPerChare)) );
-        mapLayerToNeurons[i + 1] = middleLayersNeurons;
       }
 
       //Output Layer
       layerProxies.push_back(CProxy_NeuronGroup::ckNew(totalLayers - 1,neuronsPerChare, ceil(outputNeurons/neuronsPerChare)) );
-      mapLayerToNeurons[totalLayers - 1] = outputNeurons;
+
+      //Inizialize oracle array
+      for (int i = 0; i < ITERATION; ++i)
+      {
+        /*std::vector<double> vec;
+        for (int i = 0; i < outputNeurons; ++i)
+        {
+          vec.push_back(1.0f); // TODO ! LOAD REAL VALUES FORM ADITYA'S VECTOR
+        }*/
+        oracle.push_back(0.0f);// TODO ! LOAD REAL VALUES FORM ADITYA'S VECTOR
+      }
 
       //When inactive, after sending and receiving, call end
       CkStartQD(CkCallback(CkReductionTarget(Main, done), mainProxy));
@@ -81,7 +99,6 @@ class Main: public CBase_Main {
             layerProxies.at(i).runForward(); //MAYBE SYNC PROBLEM WITH ALL THE LAYERS.
           }
       }
-
     }
 
     void forwardComplete(){
@@ -125,32 +142,39 @@ class NeuronGroup : public CBase_NeuronGroup {
       iteration = 0;
       usesAtSync=CmiTrue;
 
-      int neuronsPreviousLayer;
+      int neuronsPreviousLayer, neuronsNextLayer;
 
       if (layerIndex == 0 )
-        neuronsPreviousLayer = mapLayerToNeurons[0];
+        neuronsPreviousLayer = 0;//mapLayerToNeurons[0];
       else
         neuronsPreviousLayer = mapLayerToNeurons[layerIndex - 1];
+
+      if (layerIndex == totalLayers-1 || layerIndex == 0)
+        neuronsNextLayer = 0;
+      else
+        neuronsNextLayer = mapLayerToNeurons [layerIndex + 1];
 
       for (int i = 0; i < neuronsPreviousLayer; ++i)
       {
         incomingAj.push_back(0.0f); //Just allocate the space, the value does not matter. 
       }
 
+      for (int i = 0; i < neuronsNextLayer; ++i)
+      {
+        incomingErrs.push_back(0.0f); //Just allocate the space, the value does not matter.
+      }
+
       for (int i = 0; i < nNeurons; ++i)
       {
         neurons.push_back(Neuron(0, neuronsPreviousLayer));
         values.push_back(0.0f); //Just allocate the space, the value does not matter.
+        errors.push_back(0.0f); //Just allocate the space, the value does not matter.
       }
 
+      CkPrintf("Layer %2d NeuronGroup %04d has %04d Neurons \n", layerIndex, thisIndex, neurons.size());
+      
       CkCallback cb(CkReductionTarget(Main, creationDone), mainProxy);
       contribute(cb);
-
-      // int size = neurons.size();
-      //CkCallback cb(CkReductionTarget(Main, totalNeurons), mainProxy);
-      //contribute(sizeof(int), &size, CkReduction::sum_int, cb);
-
-      CkPrintf("Layer %2d NeuronGroup %04d has %04d Neurons \n", layerIndex, thisIndex, neurons.size());
     }
 
     NeuronGroup(CkMigrateMessage* m) {}
@@ -163,14 +187,10 @@ class NeuronGroup : public CBase_NeuronGroup {
 
     void activate(){
 
-      for (int i = 0; i < neuronsPerChare; ++i)
+      for (int i = 0; i < neurons.size(); ++i)
       {
         neurons.at(i).activate(incomingAj);
       }
-    }
-
-    void sayHello(){
-
     }
 
     void collectValues (){
@@ -181,40 +201,41 @@ class NeuronGroup : public CBase_NeuronGroup {
       }
     }
 
-    vector<float> readTarget(){
-
-    }
-
-    void calculateErrors(bool isHidden){
-      for (int i=0; i < neuronsPerChare; i++){
-        neurons[i].calculateError(incomingErrs, isHidden);
+    void calculateErrors()
+    {
+      for (int i=0; i < neurons.size(); ++i)
+      {
+        neurons[i].calculateError(incomingErrs);
       }
     }
 
-    void printValues(){
-      
+    void calculateOutputError()
+    {
+      for (int i=0; i < neurons.size(); ++i)
+      {
+        if (oracle[iteration] == neurons.size()*thisIndex + i)
+          neurons[i].calculateOutputError(1.0f);
+        else
+          neurons[i].calculateOutputError(0.0f);
+      }
+    }
+
+    void printValues()
+    {  
       for (int i=0; i < neurons.size(); i++){
         CkPrintf("Group: %d - Neuron: %d  - Value: %f \n", thisIndex, i, neurons[i].x);
       }
-
     }
 
-    void collectErrors (){
+    void collectErrors()
+    {
       for(int i=0; i < neurons.size(); i++) {
-        errors[i] = neurons[i].error;
+        errors[i] = neurons[i].collectError();
       }
     }
-    /*
-    void updateWeight(){
-      for (int i = 0; i<neurons.size(): i++){
-        for (int j = 0; j<neurons[i].weight.size(); j++) {
-          neurons[i].weight[j] += errors[j]*values[i];
-        }
-      }
-    }
-    */
+
     void exportErrors(vector<vector<double> > &errorBuffer) {
-      errorBuffer.push_back(this->errors);
+      //errorBuffer.push_back(this->errors);
     }
   private:
 

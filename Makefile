@@ -9,6 +9,7 @@ nMiddleLayers = 1
 middleLayersNeurons = 6
 outputNeurons = 4
 neuronsPerChare = 2
+#for now, nueronsPerChar must be multiple of nuerons in each layer.
 
 all: neuralNetwork
 
