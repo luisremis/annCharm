@@ -105,11 +105,16 @@ mainmodule neuralNetwork {
                 //Receives from layer thisLayerIndex - 1
                 serial "recevingLastLayer" {
                   //calculateError(...);
+		  char valuesStr[10000];
+		  valuesStr[0] = '\0';
 		  for (i = 0; i < incoming.size(); ++i)
                   {
                     incomingAj.at(groupId*neuronsPerChare + i) = incoming.at(i);
+		    char numStr[50];
+		    sprintf(numStr, " %lf", incoming.at(i));
+		    strcat(valuesStr, numStr);
                   }
-                  CkPrintf("Layer %2d Group: %d Receiving [%d-%d] from Layer %2d Group %d\n", layerIndex, thisIndex, groupId*neuronsPerChare, ((groupId+1)*neuronsPerChare)-1, layer, groupId);
+                  CkPrintf("Layer %2d Group: %d Receiving [%d-%d] %s from Layer %2d Group %d\n", layerIndex, thisIndex, groupId*neuronsPerChare, ((groupId+1)*neuronsPerChare)-1, valuesStr, layer, groupId);
                   //CkPrintf("Layer %2d Group %2d Receiving %d from layer %2d \n", layerIndex, thisIndex, incoming.size(), layer);
                 }
 
