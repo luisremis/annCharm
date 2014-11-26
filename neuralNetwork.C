@@ -2,6 +2,10 @@
 #include <vector>
 #include <math.h>
 #include <map>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <iostream>
 #include "liveViz.h"
 #include "pup_stl.h"
 #include "Neuron.h"
@@ -25,6 +29,9 @@ unsigned int middleLayersNeurons;
 unsigned int outputNeurons;
 unsigned int neuronsPerChare;
 unsigned int totalLayers;
+std::string trainImageFile;
+std::string trainLabelFile;
+
 /*readonly*/
 
 using namespace std;
@@ -46,6 +53,14 @@ class Main: public CBase_Main {
       outputNeurons       = atoi(m->argv[4]);
       neuronsPerChare     = atoi(m->argv[5]);
 
+      if(m->argc == 8) { 
+	trainImageFile = m->argv[6];
+	trainLabelFile = m->argv[7];
+      }
+
+      //Deallocate space for message
+      delete m;
+ 
       totalLayers = nMiddleLayers + 2; //MiddleLayers, input and ouput
 
       //This map mas be ready when neurons gruops are created!!!
@@ -70,11 +85,11 @@ class Main: public CBase_Main {
       //Inizialize oracle array
       for (int i = 0; i < ITERATION; ++i)
       {
-        /*std::vector<double> vec;
-        for (int i = 0; i < outputNeurons; ++i)
-        {
-          vec.push_back(1.0f); // TODO ! LOAD REAL VALUES FORM ADITYA'S VECTOR
-        }*/
+        //std::vector<double> vec;
+        //for (int i = 0; i < outputNeurons; ++i)
+        //{
+        //  vec.push_back(1.0f); // TODO ! LOAD REAL VALUES FORM ADITYA'S VECTOR
+        //}
         oracle.push_back(0.0f);// TODO ! LOAD REAL VALUES FORM ADITYA'S VECTOR
       }
 
@@ -85,6 +100,14 @@ class Main: public CBase_Main {
       // layerProxies.at(0).activate(v);
     }
 
+    void initializationDone() { 
+	    CkPrintf("Input vectors assigned. Starting runForward ...\n");    
+	    for (int i = 0; i < layerProxies.size(); ++i)
+	    {
+		    layerProxies.at(i).runForward(); //MAYBE SYNC PROBLEM WITH ALL THE LAYERS.
+	    }
+    }
+
     void creationDone(){
 
       static unsigned int counter = 0;
@@ -92,13 +115,27 @@ class Main: public CBase_Main {
 
       if (counter == totalLayers)
       {
-          CkPrintf("Creation complete ! \n");
+        CkPrintf("Creation complete! Assigning input vectors ...\n");
+        // Set inputVector for Layer 0
+        //Load Input Image Vector for Layer 0
 
-          for (int i = 0; i < layerProxies.size(); ++i)
-          {
-            layerProxies.at(i).runForward(); //MAYBE SYNC PROBLEM WITH ALL THE LAYERS.
-          }
-      }
+        std::ifstream fp(trainImageFile.c_str());
+        std::string line;
+        vector< vector<double> > fullInputVector;
+        while(std::getline(fp, line)) {
+          vector<double> currVec;
+          istringstream iss(line);
+          do { 
+            std::string currNum;
+            iss >> currNum;
+            if(currNum == "") break;
+            currVec.push_back(atof(currNum.c_str()));	
+          } while(iss);
+          fullInputVector.push_back(currVec);
+        }
+
+        layerProxies.at(0).setInputVector(fullInputVector);
+      } 
     }
 
     void forwardComplete(){
@@ -106,7 +143,6 @@ class Main: public CBase_Main {
     }
 
     void totalNeurons(int total){
-
       static unsigned int counter = 0;
       ++counter;
       CkPrintf("Total neurons created %2d Counter: %d \n", total, counter);
@@ -134,6 +170,7 @@ class NeuronGroup : public CBase_NeuronGroup {
     vector<double> values;
     vector<double> errors;
     vector<double> incomingErrs;
+    vector< vector<double> > inputVectors;
 
     NeuronGroup(int layer, int nNeurons):
                   layerIndex(layer)
@@ -170,8 +207,8 @@ class NeuronGroup : public CBase_NeuronGroup {
         values.push_back(0.0f); //Just allocate the space, the value does not matter.
         errors.push_back(0.0f); //Just allocate the space, the value does not matter.
       }
-
-      CkPrintf("Layer %2d NeuronGroup %04d has %04d Neurons \n", layerIndex, thisIndex, neurons.size());
+      
+      //CkPrintf("Layer %2d NeuronGroup %04d has %04d Neurons \n", layerIndex, thisIndex, neurons.size());
       
       CkCallback cb(CkReductionTarget(Main, creationDone), mainProxy);
       contribute(cb);
@@ -185,20 +222,37 @@ class NeuronGroup : public CBase_NeuronGroup {
       p|iteration;
     }
 
-    void activate(){
+    void setInputVector( vector< vector<double> > fullVector) {
+      for(int i = 0; i < fullVector.size(); i++) { 
+        vector<double> currVec;
+        for(int j = thisIndex*neuronsPerChare; j<(thisIndex+1)*neuronsPerChare; j++) {
+          currVec.push_back(fullVector[i][j]);
+        }
+        inputVectors.push_back(currVec);
+      }
+      CkCallback cb(CkReductionTarget(Main, initializationDone), mainProxy);
+      contribute(cb);
+    }
 
+    void activate(){
       for (int i = 0; i < neurons.size(); ++i)
       {
         neurons.at(i).activate(incomingAj);
       }
     }
 
-    void collectValues (){
-
+    void collectValues () {
       for (int i = 0; i < neurons.size(); ++i)
       {
         values.at(i) = neurons.at(i).x;
       }
+    }
+
+    void collectValues (int image_id) {
+	    for (int i = 0; i < neurons.size(); ++i)
+	    {
+		    values.at(i) = inputVectors[image_id][i];
+	    }
     }
 
     void calculateErrors()

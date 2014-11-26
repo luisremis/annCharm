@@ -27,6 +27,7 @@ mainmodule neuralNetwork {
     //entry [reductiontarget] void doneBackwardContribution();
       entry [reductiontarget] void totalNeurons(int total);
       entry [reductiontarget] void creationDone();
+      entry [reductiontarget] void initializationDone();
       entry [reductiontarget] void forwardComplete();
       entry [reductiontarget] void done();
   };
@@ -41,12 +42,14 @@ mainmodule neuralNetwork {
     entry void sendBackward(int iter, int layer, int groupId, std::vector<double> errors);
     entry void activate();
     entry void collectValues();
+    entry void collectValues(int image_id);
     entry void calculateOutputError();
 
     entry void collectErrors();
     entry void calculateErrors();
     //entry void exportErrors(vector<vector<double>> &errorBuffer);
     //entry void updateWeight();
+    entry void setInputVector( std::vector< std::vector<double> >);
 
     //Main computation
     entry void runForward() {
@@ -63,7 +66,8 @@ mainmodule neuralNetwork {
           if (layerIndex == 0) // Input Layer
           {
             serial {
-              collectValues();
+              //collectValues();
+	      collectValues(iteration);
               layerProxies.at(1).sendForward(iteration, layerIndex, thisIndex, values );
             }
           }
@@ -81,7 +85,7 @@ mainmodule neuralNetwork {
                     incomingAj.at(groupId*neuronsPerChare + i)=incoming.at(i);
                   }
 
-                  CkPrintf("Layer %2d Group %2d Receiving %d from layer %2d \n", layerIndex, thisIndex, incoming.size(), layer);
+                  //CkPrintf("Layer %2d Group %2d Receiving %d from layer %2d \n", layerIndex, thisIndex, incoming.size(), layer);
                 }
 
             serial {
@@ -101,12 +105,12 @@ mainmodule neuralNetwork {
                 //Receives from layer thisLayerIndex - 1
                 serial "recevingLastLayer" {
                   //calculateError(...);
-                  for (i = 0; i < incoming.size(); ++i)
+		  for (i = 0; i < incoming.size(); ++i)
                   {
                     incomingAj.at(groupId*neuronsPerChare + i) = incoming.at(i);
                   }
-
-                  CkPrintf("Layer %2d Group %2d Receiving %d from layer %2d \n", layerIndex, thisIndex, incoming.size(), layer);
+                  CkPrintf("Layer %2d Group: %d Receiving [%d-%d] from Layer %2d Group %d\n", layerIndex, thisIndex, groupId*neuronsPerChare, ((groupId+1)*neuronsPerChare)-1, layer, groupId);
+                  //CkPrintf("Layer %2d Group %2d Receiving %d from layer %2d \n", layerIndex, thisIndex, incoming.size(), layer);
                 }
 
                 serial "calculatingError"{
@@ -115,13 +119,15 @@ mainmodule neuralNetwork {
                   calculateOutputError();
                 }
           }
-
-          if (iteration % BACKWARD_FREQ == 0)
-          {
-            serial {
-              runBackward(); //Go to backward face every BACKWARD_FREQ iterations
-            }
-          }
+ 	  
+	  /*
+	     if (iteration % BACKWARD_FREQ == 0)
+	     {
+	     serial {
+	     	runBackward(); //Go to backward face every BACKWARD_FREQ iterations
+	     }
+	     }
+	   */
 
         }//end of the iteration loop
 
