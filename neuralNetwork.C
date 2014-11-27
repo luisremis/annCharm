@@ -11,9 +11,9 @@
 #include "Neuron.h"
 #include "neuralNetwork.decl.h"
 
-#define ITERATION (1)
+#define ITERATION (10)
 #define LB_FREQ   (10)
-#define BACKWARD_FREQ (1)
+#define BACKWARD_FREQ (5)
 
 using namespace std;
 
@@ -83,21 +83,15 @@ class Main: public CBase_Main {
       layerProxies.push_back(CProxy_NeuronGroup::ckNew(totalLayers - 1,neuronsPerChare, ceil(outputNeurons/neuronsPerChare)) );
 
       //Inizialize oracle array
-      for (int i = 0; i < ITERATION; ++i)
-      {
-        //std::vector<double> vec;
-        //for (int i = 0; i < outputNeurons; ++i)
-        //{
-        //  vec.push_back(1.0f); // TODO ! LOAD REAL VALUES FORM ADITYA'S VECTOR
-        //}
-        oracle.push_back(0.0f);// TODO ! LOAD REAL VALUES FORM ADITYA'S VECTOR
+      std::ifstream fp(trainLabelFile.c_str());
+      std::string line;
+      while(std::getline(fp, line)) { 
+	oracle.push_back(atof(line.c_str()));
       }
 
       //When inactive, after sending and receiving, call end
       CkStartQD(CkCallback(CkReductionTarget(Main, done), mainProxy));
 
-      // std::vector<double> v(0.0f, inputNeurons);
-      // layerProxies.at(0).activate(v);
     }
 
     void initializationDone() { 

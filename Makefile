@@ -15,7 +15,7 @@ inputNeurons = 900
 nMiddleLayers = 1
 middleLayersNeurons = 70
 outputNeurons = 10
-neuronsPerChare = 10
+neuronsPerChare = 5
 inputVecFile=/home/ardeshp2/gitAnnCharm/annCharm/data/train_imgs_0_1_900dim.mat 
 inputLabelFile=/home/ardeshp2/gitAnnCharm/annCharm/data/train_labels_0_1_900dim.mat 
 

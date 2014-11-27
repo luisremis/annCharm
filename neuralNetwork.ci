@@ -104,7 +104,6 @@ mainmodule neuralNetwork {
               when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> incoming  )
                 //Receives from layer thisLayerIndex - 1
                 serial "recevingLastLayer" {
-                  //calculateError(...);
 		  char valuesStr[10000];
 		  valuesStr[0] = '\0';
 		  for (i = 0; i < incoming.size(); ++i)
@@ -115,24 +114,20 @@ mainmodule neuralNetwork {
 		    strcat(valuesStr, numStr);
                   }
                   CkPrintf("Layer %2d Group: %d Receiving [%d-%d] %s from Layer %2d Group %d\n", layerIndex, thisIndex, groupId*neuronsPerChare, ((groupId+1)*neuronsPerChare)-1, valuesStr, layer, groupId);
-                  //CkPrintf("Layer %2d Group %2d Receiving %d from layer %2d \n", layerIndex, thisIndex, incoming.size(), layer);
                 }
 
-                serial "calculatingError"{
+                serial "calculatingError" {
                   activate();
                   //printValues();
                   calculateOutputError();
                 }
           }
  	  
-	  /*
-	     if (iteration % BACKWARD_FREQ == 0)
-	     {
-	     serial {
-	     	runBackward(); //Go to backward face every BACKWARD_FREQ iterations
-	     }
-	     }
-	   */
+	  /* if (iteration % BACKWARD_FREQ == 0) {
+	      serial {
+		 runBackward(); //Go to backward phase every BACKWARD_FREQ iterations
+	      }
+	  } */
 
         }//end of the iteration loop
 
