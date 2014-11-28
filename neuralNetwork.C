@@ -12,7 +12,7 @@
 #include "neuralNetwork.decl.h"
 
 #define ITERATION (10)
-#define LB_FREQ   (10)
+#define LB_FREQ   (1)
 #define BACKWARD_FREQ (5)
 
 using namespace std;
@@ -242,7 +242,8 @@ class NeuronGroup : public CBase_NeuronGroup {
       }
     }
 
-    void collectValues (int image_id) {
+    void collectValues (int image_id) 
+    {
 	    for (int i = 0; i < neurons.size(); ++i)
 	    {
 		    values.at(i) = inputVectors[image_id][i];
@@ -262,9 +263,9 @@ class NeuronGroup : public CBase_NeuronGroup {
       for (int i=0; i < neurons.size(); ++i)
       {
         if (oracle[iteration] == neurons.size()*thisIndex + i)
-          neurons[i].calculateOutputError(1.0f);
+          neurons[i].calculateOutputError(1.0f, incomingAj);
         else
-          neurons[i].calculateOutputError(0.0f);
+          neurons[i].calculateOutputError(0.0f, incomingAj);
       }
     }
 

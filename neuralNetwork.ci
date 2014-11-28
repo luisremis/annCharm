@@ -122,19 +122,20 @@ mainmodule neuralNetwork {
                   calculateOutputError();
                 }
           }
- 	  
-	  /* if (iteration % BACKWARD_FREQ == 0) {
+ 	 
+	/* 
+	  if (iteration % BACKWARD_FREQ == 0) {
 	      serial {
 		 runBackward(); //Go to backward phase every BACKWARD_FREQ iterations
 	      }
-	  } */
+	  }
+	*/ 
 
         }//end of the iteration loop
 
     };//end of runForward
 
      entry void runBackward() {
-        for(iteration=0; iteration<ITERATION; iteration++){
 
           if (layerIndex > 0 && layerIndex < totalLayers - 1) //Hidden Layers
           {
@@ -175,8 +176,6 @@ mainmodule neuralNetwork {
               layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex, errors );
            }
          }
-
-        }//END OF ITERATION
 
       };//end of runBackward
 

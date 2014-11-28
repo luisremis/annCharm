@@ -95,16 +95,21 @@ public:
       }
     }
 
-    void calculateOutputError(double oracle)
+    void calculateOutputError(double oracle, std::vector<double>& aj)
     {    
         /*
         This function calculates the errors and updates the weight
         of the output layer only
         */
-        error = x * (1 - x) * (oracle - x); 
+        //error = x * (1 - x) * (oracle - x); 
+        //TODO: @aditya CHECK THIS equation! and keep summing error until runBackward is called
+        error = (1-x)*(oracle-x);
 
+	//TODO: hold off this update until run backward is called
+	//TODO: error should be multiplied by incoming aj and not x, equation is w_ji+= delta_j*a_i
         for (int i = 0; i < weight.size(); ++i) {
-          weight[i] += error * x;
+          //weight[i] += error * x;
+          weight[i] += error * aj[i];
         }
     }
 
