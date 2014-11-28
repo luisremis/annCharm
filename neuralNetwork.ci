@@ -122,68 +122,63 @@ mainmodule neuralNetwork {
                   calculateOutputError();
                 }
           }
- 	 
-	/* 
+
 	  if (iteration % BACKWARD_FREQ == 0) {
-	      serial {
-		 runBackward(); //Go to backward phase every BACKWARD_FREQ iterations
-	      }
+
+		  if (layerIndex > 0 && layerIndex < totalLayers - 1) //Hidden Layers
+		  {
+			  //recieve errors from all neurons in next layer and assign to appropriate incomingErr
+			  forall [block](0: mapLayerToNeurons[layerIndex + 1], 1) { //Receiving from all the *neurons* in layer+1
+				when sendBackward[iteration](int iter, int layer, int neuronId, std::vector<double> errors)
+				  serial {
+					  //Receives from layer layerIndex + 1
+					  for(j_ci = 0; j_ci < neuronsPerChare; j_ci++) {
+						  //In their neuronId, they need to take corresponding error
+						  incomingErrs[j_ci][neuronId] = errors.at(thisIndex*neuronsPerChare + j_ci);
+					  } 
+					  CkPrintf("After Receive Errors in Layer %d for NeuronGroup %d from Neuron %d (out of %d)\n", layerIndex, thisIndex, neuronId, mapLayerToNeurons[layerIndex+1]);
+				  }
+			  }
+
+			  serial {
+				  CkPrintf("Test get here\n");
+			  }
+			  
+			  serial {
+				  // Calculate the errors for this layer and update weights
+				  calculateErrors();
+				  for(nIndex_ci = 0; nIndex_ci < neuronsPerChare; nIndex_ci++) 
+				  {
+					  collectErrors(nIndex_ci);
+					  CkPrintf("Sending from Layer: %d, Neuron Id: %d, Err Vec Size: %d\n", layerIndex, thisIndex*neuronsPerChare+nIndex_ci, outgoingErrs.size());
+					  if (layerIndex - 1 != 0)
+					  {
+						  layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex*neuronsPerChare + nIndex_ci, outgoingErrs);
+					  } 
+				  }
+				  //CkPrintf("Layer %2d Done \n", layerIndex);
+			  }
+		  } 
+
+		  if (layerIndex == totalLayers - 1) //output Layer
+		  {
+			  serial {
+				  //Error has been updated in the forward phase
+				  for(nIndex_ci = 0; nIndex_ci < neurons.size(); nIndex_ci++) 
+				  {
+					  collectErrors(nIndex_ci);
+					  CkPrintf("Sending from Layer: %d, Neuron Id: %d, Err Vec Size: %d\n", layerIndex, thisIndex*neuronsPerChare+nIndex_ci, outgoingErrs.size());
+					  layerProxies.at(layerIndex-1).sendBackward(iteration, layerIndex, (thisIndex*neuronsPerChare)+nIndex_ci, outgoingErrs);
+
+				  }
+			  }
+		  }
+
 	  }
-	*/ 
 
         }//end of the iteration loop
 
     };//end of runForward
-
-     entry void runBackward() {
-
-	  //TODO: if layerIndex == 0, wait for layerIndex = 1, then resume forward from correct iteration, runForward takes a parameter
-          if (layerIndex > 0 && layerIndex < totalLayers - 1) //Hidden Layers
-          {
-	    //recieve errors from all neurons in next layer and assign to appropriate incomingErr
-            forall [block](0: mapLayerToNeurons[layerIndex + 1], 1) //Receiving from all the *neurons* in layer+1
-              when sendBackward[iteration](int iter, int layer, int neuronId, std::vector<double> errors)
-                serial "receiveAndsendErrors" {
-                  //Receives from layer layerIndex + 1
-		for(j_ci = 0; j_ci < neuronsPerChare; j_ci++) {
-			//In their neuronId, they need to take corresponding error
-			incomingErrs[j_ci][neuronId] = errors.at(thisIndex*neuronsPerChare + j_ci);
-		}
-                  //CkPrintf("Layer %2d Group %2d Receiving errors from layer %2d \n", layerIndex, thisIndex, layer);
-                }
-
-            serial {
-                /*
-                 *  Calculate the errors for this layer and update weights
-                 */
-                calculateErrors();
-	        for(nIndex_ci = 0; nIndex_ci < neuronsPerChare; nIndex_ci++) 
-		{
-                   collectErrors(nIndex_ci);
-                   if (layerIndex - 1 != 0)
-                   {
-                      layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex, errors);
-                   }
-                }
-                //CkPrintf("Layer %2d Done \n", layerIndex);
-            }
-          }
-
-         if (layerIndex == totalLayers - 1) //output Layer
-         {
-            serial {
-              /*
-               Error has been updated in the forward phase
-              */
-	      for(nIndex_ci = 0; nIndex_ci < neurons.size(); nIndex_ci++) 
-              {
-               collectErrors(nIndex_ci);
-               layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, (thisIndex*neuronsPerChare)+nIndex_ci, outgoingErrs);
-	      }
-           }
-         }
-
-      };//end of runBackward
 
     };//end of neuron group
 

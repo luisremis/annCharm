@@ -75,7 +75,8 @@ public:
       }
       return sum;
     */
-      return weight[neuronIndex]*error;
+      CkAssert(weight.size() > neuronIndex);
+      return weight.at(neuronIndex)*error;
     }
 
     void calculateError(std::vector<double> & errWeightVec, std::vector<double>& aj)

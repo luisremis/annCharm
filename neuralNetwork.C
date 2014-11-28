@@ -11,7 +11,7 @@
 #include "Neuron.h"
 #include "neuralNetwork.decl.h"
 
-#define ITERATION (10)
+#define ITERATION (1)
 #define LB_FREQ   (1)
 #define BACKWARD_FREQ (5)
 
@@ -296,9 +296,9 @@ class NeuronGroup : public CBase_NeuronGroup {
       outgoingErrs.resize(0);
       for(int i = 0; i < mapLayerToNeurons[layerIndex-1]; i++) 
       { 
-     	outgoingErrs.push_back(neurons[i].collectError(i)); 
+     	outgoingErrs.push_back(neurons[neuronIndex].collectError(i)); 
       }
-      /* for(int i=0; i < neurons.size(); i++) {
+       /* for(int i=0; i < neurons.size(); i++) {
         errors[i] = neurons[i].collectError();
       } */
     }
