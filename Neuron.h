@@ -65,25 +65,26 @@ public:
       //CkPrintf("x: %f \n", x);
     }
 
-    double collectError()
+    double collectError(int neuronIndex)
     {
-      double sum =0;
+    /*  double sum =0;
 
       for (int i = 0; i < weight.size(); ++i)
       {
         sum += error * weight[i];
       }
-
       return sum;
+    */
+      return weight[neuronIndex]*error;
     }
 
-    void calculateError(std::vector<double> & incomingErrs)
+    void calculateError(std::vector<double> & errWeightVec)
     {
       /*
       This function calculates the errors and updates the weight
       */
 
-      error = 0.0;
+      /* error = 0.0;
       for (int i = 0; i < incomingErrs.size(); ++i){
         error += incomingErrs[i] ;
       }
@@ -92,7 +93,14 @@ public:
 
       for (int i = 0; i < weight.size(); ++i) {
         weight[i] += error * x;
+      } */
+
+      error = 0.0f;
+      for (int i = 0; i < errWeightVec.size(); i++) {
+        error += errWeightVec[i];
       }
+      error = error*x*(1-x);
+      
     }
 
     void calculateOutputError(double oracle, std::vector<double>& aj)

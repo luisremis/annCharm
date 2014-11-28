@@ -156,14 +156,19 @@ class NeuronGroup : public CBase_NeuronGroup {
   NeuronGroup_SDAG_CODE
 
   public:
+    /* Counters for loops in ci files */
     int iteration;
-    int i;
+    int i; //TODO: @aditya, worried about this, we use i at many places, replace by i_ci
+    int j_ci;
+    int nIndex_ci;
+
     unsigned int layerIndex;
     vector<Neuron> neurons; //Maybe not needed
     vector<double> incomingAj; //Incoming values
     vector<double> values;
     vector<double> errors;
-    vector<double> incomingErrs;
+    vector< vector<double> > incomingErrs;
+    vector<double> outgoingErrs; //weighted errors are sent back per neuron
     vector< vector<double> > inputVectors;
 
     NeuronGroup(int layer, int nNeurons):
@@ -190,9 +195,13 @@ class NeuronGroup : public CBase_NeuronGroup {
         incomingAj.push_back(0.0f); //Just allocate the space, the value does not matter. 
       }
 
-      for (int i = 0; i < neuronsNextLayer; ++i)
-      {
-        incomingErrs.push_back(0.0f); //Just allocate the space, the value does not matter.
+      for(int j = 0; j < nNeurons; j++) {
+	      std::vector<double> vec;
+	      for (int i = 0; i < neuronsNextLayer; ++i)
+	      {
+		      vec.push_back(0.0f); //Just allocate the space, the value does not matter.
+	      }
+        incomingErrs.push_back(vec);
       }
 
       for (int i = 0; i < nNeurons; ++i)
@@ -252,9 +261,14 @@ class NeuronGroup : public CBase_NeuronGroup {
 
     void calculateErrors()
     {
+    /* TODO:FIX THIS!
       for (int i=0; i < neurons.size(); ++i)
       {
         neurons[i].calculateError(incomingErrs);
+      }
+    */
+      for (int i = 0; i < neurons.size(); i++) {
+        neurons[i].calculateError(incomingErrs[i]);
       }
     }
 
@@ -276,11 +290,17 @@ class NeuronGroup : public CBase_NeuronGroup {
       }
     }
 
-    void collectErrors()
+    void collectErrors(int neuronIndex)
     {
-      for(int i=0; i < neurons.size(); i++) {
-        errors[i] = neurons[i].collectError();
+      outgoingErrs.clear();
+      outgoingErrs.resize(0);
+      for(int i = 0; i < mapLayerToNeurons[layerIndex-1]; i++) 
+      { 
+     	outgoingErrs.push_back(neurons[i].collectError(i)); 
       }
+      /* for(int i=0; i < neurons.size(); i++) {
+        errors[i] = neurons[i].collectError();
+      } */
     }
 
     void exportErrors(vector<vector<double> > &errorBuffer) {

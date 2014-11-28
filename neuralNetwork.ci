@@ -45,7 +45,7 @@ mainmodule neuralNetwork {
     entry void collectValues(int image_id);
     entry void calculateOutputError();
 
-    entry void collectErrors();
+    entry void collectErrors(int nIndex);
     entry void calculateErrors();
     //entry void exportErrors(vector<vector<double>> &errorBuffer);
     //entry void updateWeight();
@@ -137,18 +137,19 @@ mainmodule neuralNetwork {
 
      entry void runBackward() {
 
+	  //TODO: if layerIndex == 0, wait for layerIndex = 1, then resume forward from correct iteration, runForward takes a parameter
           if (layerIndex > 0 && layerIndex < totalLayers - 1) //Hidden Layers
           {
-            forall [block](0: mapLayerToNeurons[layerIndex + 1]/neuronsPerChare -1,1) //Receiving from all the chares in layer-1
-              when sendBackward[iteration](int iter, int layer, int groupId, std::vector<double> errors  )
+	    //recieve errors from all neurons in next layer and assign to appropriate incomingErr
+            forall [block](0: mapLayerToNeurons[layerIndex + 1], 1) //Receiving from all the *neurons* in layer+1
+              when sendBackward[iteration](int iter, int layer, int neuronId, std::vector<double> errors)
                 serial "receiveAndsendErrors" {
                   //Receives from layer layerIndex + 1
-
-                  for (i = 0; i < errors.size(); ++i)
-                  {
-                    incomingErrs.at(groupId*neuronsPerChare + i) = errors.at(i);
-                  }
-                  CkPrintf("Layer %2d Group %2d Receiving errors from layer %2d \n", layerIndex, thisIndex, layer);
+		for(j_ci = 0; j_ci < neuronsPerChare; j_ci++) {
+			//In their neuronId, they need to take corresponding error
+			incomingErrs[j_ci][neuronId] = errors.at(thisIndex*neuronsPerChare + j_ci);
+		}
+                  //CkPrintf("Layer %2d Group %2d Receiving errors from layer %2d \n", layerIndex, thisIndex, layer);
                 }
 
             serial {
@@ -156,13 +157,15 @@ mainmodule neuralNetwork {
                  *  Calculate the errors for this layer and update weights
                  */
                 calculateErrors();
-                collectErrors();
-                if (layerIndex - 1 != 0)
-                {
-                  layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex, errors);
+	        for(nIndex_ci = 0; nIndex_ci < neuronsPerChare; nIndex_ci++) 
+		{
+                   collectErrors(nIndex_ci);
+                   if (layerIndex - 1 != 0)
+                   {
+                      layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex, errors);
+                   }
                 }
-                
-                CkPrintf("Layer %2d Done \n", layerIndex);
+                //CkPrintf("Layer %2d Done \n", layerIndex);
             }
           }
 
@@ -172,8 +175,11 @@ mainmodule neuralNetwork {
               /*
                Error has been updated in the forward phase
               */
-              collectErrors();
-              layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex, errors );
+	      for(nIndex_ci = 0; nIndex_ci < neurons.size(); nIndex_ci++) 
+              {
+               collectErrors(nIndex_ci);
+               layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, (thisIndex*neuronsPerChare)+nIndex_ci, outgoingErrs);
+	      }
            }
          }
 
