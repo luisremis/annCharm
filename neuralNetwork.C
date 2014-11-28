@@ -268,7 +268,7 @@ class NeuronGroup : public CBase_NeuronGroup {
       }
     */
       for (int i = 0; i < neurons.size(); i++) {
-        neurons[i].calculateError(incomingErrs[i]);
+        neurons[i].calculateError(incomingErrs[i], incomingAj);
       }
     }
 

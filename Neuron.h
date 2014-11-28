@@ -78,7 +78,7 @@ public:
       return weight[neuronIndex]*error;
     }
 
-    void calculateError(std::vector<double> & errWeightVec)
+    void calculateError(std::vector<double> & errWeightVec, std::vector<double>& aj)
     {
       /*
       This function calculates the errors and updates the weight
@@ -100,7 +100,11 @@ public:
         error += errWeightVec[i];
       }
       error = error*x*(1-x);
-      
+
+      for (int i = 0; i < weight.size(); ++i) {
+	      //weight[i] += error * x;
+	      weight[i] += error * aj[i];
+      }
     }
 
     void calculateOutputError(double oracle, std::vector<double>& aj)
