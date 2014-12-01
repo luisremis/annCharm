@@ -15,36 +15,29 @@
 class Neuron  {
 public:
     double x;
+    double dx;
     double error;
     double target; //Value from the oracle vector.
     std::vector<double> weight;
 
     Neuron(int type, unsigned int neuronsPreviousLayer) {
 
-      x = 1.0f; //TODO
+      x = drand48();
       error = 0.0f; //TODO
-      //target = 0.0f; //TODO FOR RECODING OUTPUT
 
       for (int i = 0; i < neuronsPreviousLayer; ++i)
       {
-        weight.push_back(1.0f);//drand48());
+        //weight.push_back(drand48() *pow(10, -3));
+        weight.push_back(pow(10,-3)*(drand48()-drand48()));
+        //weight.push_back(drand48());
+        //weight.push_back(1.0f);
+        CkPrintf("Weight %lf\n", weight[i]);
       }
     }
-/*
-    Neuron(int type, unsigned int neuronsPreviousLayer, double target) {
-      //Constructor for output layer neuron
-      x = 1.0f; //TODO
-      error = 0.0f; //TODO
-      //this->target = target; //TODO FOR RECODING OUTPUT
 
-      for (int i = 0; i < neuronsPreviousLayer; ++i)
-      {
-        weight.push_back(1.0f);//drand48());
-      }
-    }
-*/
     void pup(PUP::er &p){
       p|x;
+      p|dx;
     }
 
     void activate(std::vector<double> & aj){
@@ -58,80 +51,65 @@ public:
       for (int i = 0; i < weight.size(); ++i)
       {
         sum += weight.at(i) * aj.at(i);
-        //CkPrintf("sum: %f \n", sum);
+        //CkPrintf("sum: %f aj: %f \n", sum, aj.at(i));
       }
 
       x = neuronFunction(sum);
-      //CkPrintf("x: %f \n", x);
+      dx = dNeuronFunction(sum);
+      //CkPrintf("x: %f %f\n", x, sum);
     }
 
-    double collectError(int neuronIndex)
+    double collectError(int nIndex)
     {
-    /*  double sum =0;
-
-      for (int i = 0; i < weight.size(); ++i)
-      {
-        sum += error * weight[i];
-      }
-      return sum;
-    */
-      CkAssert(weight.size() > neuronIndex);
-      return weight.at(neuronIndex)*error;
+      CkAssert(weight.size() > nIndex);
+      return weight.at(nIndex)*error;
     }
 
-    void calculateError(std::vector<double> & errWeightVec, std::vector<double>& aj)
+    void updateWeight(std::vector<double>& aj, std::vector<double> & incomingErrs)
     {
       /*
       This function calculates the errors and updates the weight
       */
 
-      /* error = 0.0;
+      error = 0.0f;
       for (int i = 0; i < incomingErrs.size(); ++i){
         error += incomingErrs[i] ;
       }
 
-      error *= x * (1 - x);
+      //error *= x * (1 - x);
+      error *= dx;
 
       for (int i = 0; i < weight.size(); ++i) {
-        weight[i] += error * x;
-      } */
-
-      error = 0.0f;
-      for (int i = 0; i < errWeightVec.size(); i++) {
-        error += errWeightVec[i];
-      }
-      error = error*x*(1-x);
-
-      for (int i = 0; i < weight.size(); ++i) {
-	      //weight[i] += error * x;
-	      weight[i] += error * aj[i];
+        weight[i] += 0.1*error * aj[i];
       }
     }
 
-    void calculateOutputError(double oracle, std::vector<double>& aj)
+    void updateWeight(std::vector<double>& aj){ //this is for the output layer only
+        for (int i = 0; i < weight.size(); ++i) {
+          weight[i] += 0.1*error*aj[i];
+        }
+    }
+
+    void calculateOutputError(double oracle)
     {    
         /*
         This function calculates the errors and updates the weight
         of the output layer only
         */
         //error = x * (1 - x) * (oracle - x); 
-        //TODO: @aditya CHECK THIS equation! and keep summing error until runBackward is called
-        error = (1-x)*(oracle-x);
-
-	//TODO: hold off this update until run backward is called
-	//TODO: error should be multiplied by incoming aj and not x, equation is w_ji+= delta_j*a_i
-        for (int i = 0; i < weight.size(); ++i) {
-          //weight[i] += error * x;
-          weight[i] += error * aj[i];
-        }
+        error = dx * (1 - dx) * (oracle - x); 
     }
 
     double neuronFunction(double x){
 
       //Function to be defined
-      return x + 0.0f ;
+      return 1.0f/(1.0f + exp(-x)) ;
+      //return x;
     }
 
+    double dNeuronFunction(double x) { 
+    	return neuronFunction(x)/(1.0f-neuronFunction(x));
+    }
 };
 
 #endif

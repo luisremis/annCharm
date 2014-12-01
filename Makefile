@@ -1,24 +1,28 @@
 CHARMC = /home/acun2/charm/net-linux-x86_64/bin/charmc $(OPTS)
 #CHARMC = /Users/luisremis/charm-6.6.0/bin/charmc $(OPTS)
-TESTOPTS =  +p4 ++local
+TESTOPTS =  +p1 ++local
 
 OBJS = neuralNetwork.o
 
-#inputNeurons = 4
+#inputNeurons = 2
 #nMiddleLayers = 1
-#middleLayersNeurons = 6
-#outputNeurons = 4
-#neuronsPerChare = 2
-#for now, nueronsPerChar must be multiple of nuerons in each layer.
+#middleLayersNeurons = 4
+#outputNeurons = 2
+#neuronsPerChare = 1
+#inputVecFile=data/train_imgs_small.mat
+#inputLabelFile=data/train_labels_small.mat
+#testVecFile=data/train_imgs_small.mat
+#testLabelFile=data/train_labels_small.mat
 
 inputNeurons = 900
 nMiddleLayers = 1
-middleLayersNeurons = 70
+middleLayersNeurons = 20
 outputNeurons = 10
 neuronsPerChare = 5
-inputVecFile=/home/ardeshp2/gitAnnCharm/annCharm/data/train_imgs_0_1_900dim.mat 
-inputLabelFile=/home/ardeshp2/gitAnnCharm/annCharm/data/train_labels_0_1_900dim.mat 
-
+inputVecFile=data/train_imgs_0_1_900dimMixed.mat
+inputLabelFile=data/train_labels_0_1_900dimMixed.mat
+testVecFile=data/test_imgs_0_1_900dimMixed.mat
+testLabelFile=data/train_labels_0_1_900dimMixed.mat
 
 all: neuralNetwork
 
@@ -41,4 +45,7 @@ test: all
 	./charmrun neuralNetwork $(inputNeurons) $(nMiddleLayers) $(middleLayersNeurons) $(outputNeurons) $(neuronsPerChare) $(TESTOPTS)
 
 testfile: all
-	./charmrun neuralNetwork $(inputNeurons) $(nMiddleLayers) $(middleLayersNeurons) $(outputNeurons) $(neuronsPerChare) $(inputVecFile) $(inputLabelFile) $(TESTOPTS)
+	./charmrun neuralNetwork $(inputNeurons) $(nMiddleLayers) \
+	$(middleLayersNeurons) $(outputNeurons) $(neuronsPerChare) \
+	$(inputVecFile) $(inputLabelFile) \
+	$(testVecFile) $(testLabelFile) $(TESTOPTS)

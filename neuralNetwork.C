@@ -1,19 +1,19 @@
+#include <iostream>
 #include <stdlib.h>
 #include <vector>
 #include <math.h>
 #include <map>
+#include <string>
 #include <fstream>
 #include <sstream>
-#include <string>
-#include <iostream>
 #include "liveViz.h"
 #include "pup_stl.h"
 #include "Neuron.h"
 #include "neuralNetwork.decl.h"
 
-#define ITERATION (1)
-#define LB_FREQ   (1)
-#define BACKWARD_FREQ (5)
+#define ITERATION (30)
+#define LB_FREQ   (10)
+#define BACKWARD_FREQ (1)
 
 using namespace std;
 
@@ -31,6 +31,8 @@ unsigned int neuronsPerChare;
 unsigned int totalLayers;
 std::string trainImageFile;
 std::string trainLabelFile;
+std::string testImageFile;
+std::string testLabelFile;
 
 /*readonly*/
 
@@ -40,9 +42,8 @@ class Main: public CBase_Main {
 
   public:
     int iteration;
-    //unsigned int neuronsPerChare;
-    //unsigned int inputNeurons, nMiddleLayers, middleLayersNeurons, outputNeurons;
-    //unsigned int totalLayers;
+    std::string imageFile;
+    std::string labelFile;
 
     Main(CkArgMsg* m) {
 
@@ -53,9 +54,11 @@ class Main: public CBase_Main {
       outputNeurons       = atoi(m->argv[4]);
       neuronsPerChare     = atoi(m->argv[5]);
 
-      if(m->argc == 8) { 
-	trainImageFile = m->argv[6];
-	trainLabelFile = m->argv[7];
+      if(m->argc == 10) { 
+      	trainImageFile = m->argv[6];
+      	trainLabelFile = m->argv[7];
+        testImageFile = m->argv[8];
+        testLabelFile = m->argv[9];
       }
 
       //Deallocate space for message
@@ -86,19 +89,64 @@ class Main: public CBase_Main {
       std::ifstream fp(trainLabelFile.c_str());
       std::string line;
       while(std::getline(fp, line)) { 
-	oracle.push_back(atof(line.c_str()));
+	      oracle.push_back(atof(line.c_str()));
       }
 
       //When inactive, after sending and receiving, call end
-      CkStartQD(CkCallback(CkReductionTarget(Main, done), mainProxy));
+      //CkStartQD(CkCallback(CkReductionTarget(Main, done), mainProxy));
+    }
+
+    void readFromFiles() {
+
+      std::ifstream fp(imageFile.c_str());
+      std::string line;
+      vector< vector<double> > fullInputVector;
+      while(std::getline(fp, line)) {
+        vector<double> currVec;
+        istringstream iss(line);
+        do { 
+          std::string currNum;
+          iss >> currNum;
+          if(currNum == "") break;
+          currVec.push_back(atof(currNum.c_str())); 
+        } while(iss);
+        fullInputVector.push_back(currVec);
+      }
+
+      CkPrintf("Image File: %s \n", imageFile.c_str() );
+      CkPrintf("Images: %d - dim: %d\n", fullInputVector.size(), (int)sqrt(fullInputVector.at(0).size()) );
+
+      //Inizialize oracle array
+      //initOracle();
+
+      layerProxies.at(0).setInputVector(fullInputVector);
 
     }
 
+    void initOracle(){
+
+      std::fstream file(labelFile.c_str());
+      oracle.clear();
+
+      int aux;
+
+      while (1) {
+        
+          file >> aux;
+          if(file.eof())
+            break;
+          oracle.push_back(aux);
+      }
+
+      CkPrintf("Oracle File: %s \n", labelFile.c_str() );
+      CkPrintf("Oracle Inizialized with %d values. \n", oracle.size());    
+    }
+
     void initializationDone() { 
-	    CkPrintf("Input vectors assigned. Starting runForward ...\n");    
+	    CkPrintf("Input vectors assigned. Starting run ...\n");    
 	    for (int i = 0; i < layerProxies.size(); ++i)
 	    {
-		    layerProxies.at(i).runForward(); //MAYBE SYNC PROBLEM WITH ALL THE LAYERS.
+		    layerProxies.at(i).run(); //MAYBE SYNC PROBLEM WITH ALL THE LAYERS.
 	    }
     }
 
@@ -113,27 +161,60 @@ class Main: public CBase_Main {
         // Set inputVector for Layer 0
         //Load Input Image Vector for Layer 0
 
-        std::ifstream fp(trainImageFile.c_str());
-        std::string line;
-        vector< vector<double> > fullInputVector;
-        while(std::getline(fp, line)) {
-          vector<double> currVec;
-          istringstream iss(line);
-          do { 
-            std::string currNum;
-            iss >> currNum;
-            if(currNum == "") break;
-            currVec.push_back(atof(currNum.c_str()));	
-          } while(iss);
-          fullInputVector.push_back(currVec);
-        }
+        imageFile = trainImageFile;
+        labelFile = trainLabelFile; 
 
-        layerProxies.at(0).setInputVector(fullInputVector);
+        readFromFiles();
       } 
     }
 
+    void iterationsCompleted(){
+
+      static unsigned int counter = 0;
+      ++counter;
+
+      if (counter == totalLayers)
+      {
+        CkPrintf("All iterations completed ...\n");
+        // Set inputVector for Layer 0
+        //Load Input Image Vector for Layer 0
+
+        //imageFile = testImageFile;
+        //labelFile = testLabelFile; 
+
+        //readFromFiles();
+        CkPrintf("*** Done *** \n");
+        CkExit();
+      }
+
+    }
+
+    void setIteration(unsigned int iter){
+
+      iteration = iter;
+      CkPrintf("Iteration done in main: %d \n", iteration);
+    }
+
     void forwardComplete(){
-      
+        
+        //CkPrintf("Forward complete! Iteration: %d \n", iteration);
+
+        //Go to backward face every BACKWARD_FREQ iterations
+        for (int i = 0; i < layerProxies.size(); ++i)
+        {
+          //layerProxies.at(i).runBackward(); //MAYBE SYNC PROBLEM WITH ALL THE LAYERS.
+        } 
+    }
+
+    void backwardComplete(){
+
+        //CkPrintf("Backward complete ! \n");
+        
+        //Go to backward face every BACKWARD_FREQ iterations
+        for (int i = 0; i < layerProxies.size(); ++i)
+        {
+          //layerProxies.at(i).run(); //MAYBE SYNC PROBLEM WITH ALL THE LAYERS.
+        } 
     }
 
     void totalNeurons(int total){
@@ -156,27 +237,30 @@ class NeuronGroup : public CBase_NeuronGroup {
   NeuronGroup_SDAG_CODE
 
   public:
-    /* Counters for loops in ci files */
     int iteration;
-    int i; //TODO: @aditya, worried about this, we use i at many places, replace by i_ci
+
+    int i;
     int j_ci;
     int nIndex_ci;
+    int blockT;
 
     unsigned int layerIndex;
+    int phase;
     vector<Neuron> neurons; //Maybe not needed
     vector<double> incomingAj; //Incoming values
     vector<double> values;
     vector<double> errors;
     vector< vector<double> > incomingErrs;
-    vector<double> outgoingErrs; //weighted errors are sent back per neuron
     vector< vector<double> > inputVectors;
-
+    vector<double> outgoingErrs; //weighted errors are sent back per neuron
+ 
     NeuronGroup(int layer, int nNeurons):
                   layerIndex(layer)
     {
       __sdag_init();
       iteration = 0;
       usesAtSync=CmiTrue;
+      phase = 0;
 
       int neuronsPreviousLayer, neuronsNextLayer;
 
@@ -202,6 +286,7 @@ class NeuronGroup : public CBase_NeuronGroup {
 		      vec.push_back(0.0f); //Just allocate the space, the value does not matter.
 	      }
         incomingErrs.push_back(vec);
+	//CkPrintf("Layer %d, Neuron %d, ASSIGNMENT Error Vec Size: %d\n", layerIndex, thisIndex, incomingErrs[j].size());
       }
 
       for (int i = 0; i < nNeurons; ++i)
@@ -226,6 +311,9 @@ class NeuronGroup : public CBase_NeuronGroup {
     }
 
     void setInputVector( vector< vector<double> > fullVector) {
+      
+      inputVectors.clear();
+
       for(int i = 0; i < fullVector.size(); i++) { 
         vector<double> currVec;
         for(int j = thisIndex*neuronsPerChare; j<(thisIndex+1)*neuronsPerChare; j++) {
@@ -233,6 +321,7 @@ class NeuronGroup : public CBase_NeuronGroup {
         }
         inputVectors.push_back(currVec);
       }
+
       CkCallback cb(CkReductionTarget(Main, initializationDone), mainProxy);
       contribute(cb);
     }
@@ -248,27 +337,27 @@ class NeuronGroup : public CBase_NeuronGroup {
       for (int i = 0; i < neurons.size(); ++i)
       {
         values.at(i) = neurons.at(i).x;
+        //CkPrintf("Value: %f \n", values.at(i) );
       }
     }
 
-    void collectValues (int image_id) 
-    {
+    void collectValues (int image_id) {
 	    for (int i = 0; i < neurons.size(); ++i)
 	    {
-		    values.at(i) = inputVectors[image_id][i];
+        neurons.at(i).x = inputVectors[image_id][i];
+		    values.at(i)    = neurons.at(i).x;
 	    }
     }
 
-    void calculateErrors()
+    void updateWeight()
     {
-    /* TODO:FIX THIS!
       for (int i=0; i < neurons.size(); ++i)
       {
-        neurons[i].calculateError(incomingErrs);
-      }
-    */
-      for (int i = 0; i < neurons.size(); i++) {
-        neurons[i].calculateError(incomingErrs[i], incomingAj);
+        if (layerIndex == totalLayers - 1)
+          neurons[i].updateWeight(incomingAj); //only for output layer
+        else
+          neurons[i].updateWeight(incomingAj, incomingErrs[i]);
+	//CkPrintf("!!!Error Computed for Neuron %d: %lf\n", thisIndex, neurons[i].error);
       }
     }
 
@@ -277,9 +366,10 @@ class NeuronGroup : public CBase_NeuronGroup {
       for (int i=0; i < neurons.size(); ++i)
       {
         if (oracle[iteration] == neurons.size()*thisIndex + i)
-          neurons[i].calculateOutputError(1.0f, incomingAj);
+          neurons[i].calculateOutputError(1.0f);
         else
-          neurons[i].calculateOutputError(0.0f, incomingAj);
+          neurons[i].calculateOutputError(0.0f);
+	//CkPrintf("ThisIndex: %d, Activation for Neuron_%d: %lf, Error: %lf\n", thisIndex, i, neurons[i].x, neurons[i].error);
       }
     }
 
@@ -292,15 +382,12 @@ class NeuronGroup : public CBase_NeuronGroup {
 
     void collectErrors(int neuronIndex)
     {
-      outgoingErrs.clear();
-      outgoingErrs.resize(0);
-      for(int i = 0; i < mapLayerToNeurons[layerIndex-1]; i++) 
-      { 
-     	outgoingErrs.push_back(neurons[neuronIndex].collectError(i)); 
-      }
-       /* for(int i=0; i < neurons.size(); i++) {
-        errors[i] = neurons[i].collectError();
-      } */
+	    outgoingErrs.clear();
+	    outgoingErrs.resize(0);
+	    for(int i = 0; i < mapLayerToNeurons[layerIndex-1]; i++) 
+	    { 
+		    outgoingErrs.push_back(neurons[neuronIndex].collectError(i)); 
+	    }
     }
 
     void exportErrors(vector<vector<double> > &errorBuffer) {
