@@ -11,7 +11,7 @@
 #include "Neuron.h"
 #include "neuralNetwork.decl.h"
 
-#define ITERATION (30)
+#define ITERATION (1999)
 #define LB_FREQ   (10)
 #define BACKWARD_FREQ (1)
 

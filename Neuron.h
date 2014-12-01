@@ -27,11 +27,11 @@ public:
 
       for (int i = 0; i < neuronsPreviousLayer; ++i)
       {
-        //weight.push_back(drand48() *pow(10, -3));
-        weight.push_back(pow(10,-3)*(drand48()-drand48()));
+        weight.push_back(drand48() *pow(10, -3));
+        //weight.push_back(pow(10,-3)*(drand48()-drand48()));
         //weight.push_back(drand48());
         //weight.push_back(1.0f);
-        CkPrintf("Weight %lf\n", weight[i]);
+        //CkPrintf("Weight %lf\n", weight[i]);
       }
     }
 
@@ -76,8 +76,8 @@ public:
         error += incomingErrs[i] ;
       }
 
-      //error *= x * (1 - x);
-      error *= dx;
+      error *= x * (1 - x);
+      //error *= dx;
 
       for (int i = 0; i < weight.size(); ++i) {
         weight[i] += 0.1*error * aj[i];
@@ -96,19 +96,31 @@ public:
         This function calculates the errors and updates the weight
         of the output layer only
         */
-        //error = x * (1 - x) * (oracle - x); 
-        error = dx * (1 - dx) * (oracle - x); 
+        error = x * (1 - x) * (oracle - x); 
+        //error = dx * (1 - dx) * (oracle - x); 
     }
 
     double neuronFunction(double x){
 
+      double result = 1.0f/(1.0f + exp(-x));
+
+      //result = 0.5f;
       //Function to be defined
-      return 1.0f/(1.0f + exp(-x)) ;
+      return  result;
       //return x;
     }
 
     double dNeuronFunction(double x) { 
-    	return neuronFunction(x)/(1.0f-neuronFunction(x));
+
+      double result = neuronFunction(x)/(1.0f-neuronFunction(x));
+
+      if (neuronFunction(x) == 1.0f)
+        result = neuronFunction(x) / (1.0f - 0.5f) ;
+
+      //if (neuronFunction(x) == 1.0f)
+        //result = 0.5f;
+
+    	return result;
     }
 };
 

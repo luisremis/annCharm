@@ -72,13 +72,19 @@ mainmodule neuralNetwork {
               	for(blockT = 0; blockT < mapLayerToNeurons[layerIndex+1]; blockT++) {
 		 when sendBackward[iteration-1](int iter, int layer, int neuronId, std::vector<double> errors)
                  serial {
-                    if(thisIndex == 0) CkPrintf("Recieved End Message for Backward Phase %d\n", iteration);
+
                  }
               }
+              if(thisIndex == 0){
+                serial {
+                  CkPrintf("Recieved End Message for Backward Phase %d\n", iteration);
+                }
+              }
+
 
             }
             serial {
-	      CkPrintf("Starting send forward for iteration %d\n", iteration);
+	      //CkPrintf("Starting send forward for iteration %d\n", iteration);
 	      collectValues(iteration);
               layerProxies.at(1).sendForward(iteration, layerIndex, thisIndex, values );
             }
@@ -131,7 +137,7 @@ mainmodule neuralNetwork {
                   activate();
                   calculateOutputError();
 
-                  /* if (phase == 1) //Test Phase
+                  if (true) //Test Phase
                   {
                     //Final phase
                     collectValues();
@@ -139,10 +145,11 @@ mainmodule neuralNetwork {
                     for (int i = 0; i < values.size(); ++i)
                     {
                       result << values.at(i) << " "; //(int)round(values.at(i)) << " ";
+                      //result << (int)round(values.at(i)) << " ";
                     }
                     std::string aux = result.str();
                     CkPrintf("Output Layer for iteration %3d : %s \n", iteration, aux.c_str());
-                  } */
+                  } 
                 } 
           }
 
@@ -160,7 +167,7 @@ mainmodule neuralNetwork {
                       //In their neuronId, they need to take corresponding error
                       incomingErrs[j_ci][neuronId] = errors.at(thisIndex*neuronsPerChare + j_ci);
                     } 
-                    CkPrintf("After Receive Errors in Layer %d for NeuronGroup %d from Neuron %d (out of %d)\n", layerIndex, thisIndex, neuronId, mapLayerToNeurons[layerIndex+1]);
+                    //CkPrintf("After Receive Errors in Layer %d for NeuronGroup %d from Neuron %d (out of %d)\n", layerIndex, thisIndex, neuronId, mapLayerToNeurons[layerIndex+1]);
                   }
               }
 
@@ -180,7 +187,7 @@ mainmodule neuralNetwork {
                 for(nIndex_ci = 0; nIndex_ci < neuronsPerChare; nIndex_ci++) 
                 {
                   collectErrors(nIndex_ci);
-                  CkPrintf("**** Sending from Layer: %d, Neuron Id: %d, Err Vec Size: %d\n", layerIndex, thisIndex*neuronsPerChare+nIndex_ci, outgoingErrs.size());
+                  //CkPrintf("**** Sending from Layer: %d, Neuron Id: %d, Err Vec Size: %d\n", layerIndex, thisIndex*neuronsPerChare+nIndex_ci, outgoingErrs.size());
                   layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex*neuronsPerChare + nIndex_ci, outgoingErrs);
                 }
 
@@ -200,7 +207,7 @@ mainmodule neuralNetwork {
                 for(nIndex_ci = 0; nIndex_ci < neurons.size(); nIndex_ci++) { 
 
                   collectErrors(nIndex_ci);
-		  CkPrintf("Sending from Layer: %d, Neuron Id: %d, Err Vec Size: %d\n", layerIndex, thisIndex*neuronsPerChare+nIndex_ci, outgoingErrs.size());
+		  //CkPrintf("Sending from Layer: %d, Neuron Id: %d, Err Vec Size: %d\n", layerIndex, thisIndex*neuronsPerChare+nIndex_ci, outgoingErrs.size());
 		  layerProxies.at(layerIndex-1).sendBackward(iteration, layerIndex, (thisIndex*neuronsPerChare)+nIndex_ci, outgoingErrs);
 
                 }
@@ -211,7 +218,7 @@ mainmodule neuralNetwork {
         }//end of the iteration loop
 
         serial { //All stages completed. Call for new images.
-          CkPrintf("Contributing to forward complete Iteration %2d \n",  iteration);
+          //CkPrintf("Contributing to forward complete Iteration %2d \n",  iteration);
           phase = 1;
           CkCallback cb(CkReductionTarget(Main, iterationsCompleted), mainProxy);
           contribute(cb); //Go to backward face every BACKWARD_FREQ iterations

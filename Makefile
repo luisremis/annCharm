@@ -1,6 +1,6 @@
 CHARMC = /home/acun2/charm/net-linux-x86_64/bin/charmc $(OPTS)
 #CHARMC = /Users/luisremis/charm-6.6.0/bin/charmc $(OPTS)
-TESTOPTS =  +p1 ++local
+TESTOPTS =  +p4 ++local
 
 OBJS = neuralNetwork.o
 
@@ -16,11 +16,11 @@ OBJS = neuralNetwork.o
 
 inputNeurons = 900
 nMiddleLayers = 1
-middleLayersNeurons = 20
+middleLayersNeurons = 90
 outputNeurons = 10
-neuronsPerChare = 5
-inputVecFile=data/train_imgs_0_1_900dimMixed.mat
-inputLabelFile=data/train_labels_0_1_900dimMixed.mat
+neuronsPerChare = 10
+inputVecFile=data/train_imgs_0_1_900dimMixed20.mat
+inputLabelFile=data/train_labels_0_1_900dimMixed20.mat
 testVecFile=data/test_imgs_0_1_900dimMixed.mat
 testLabelFile=data/train_labels_0_1_900dimMixed.mat
 
@@ -44,7 +44,8 @@ neuralNetwork.o: neuralNetwork.C neuralNetwork.decl.h
 test: all
 	./charmrun neuralNetwork $(inputNeurons) $(nMiddleLayers) $(middleLayersNeurons) $(outputNeurons) $(neuronsPerChare) $(TESTOPTS)
 
-testfile: all
+testfile: clean
+	make all
 	./charmrun neuralNetwork $(inputNeurons) $(nMiddleLayers) \
 	$(middleLayersNeurons) $(outputNeurons) $(neuronsPerChare) \
 	$(inputVecFile) $(inputLabelFile) \
