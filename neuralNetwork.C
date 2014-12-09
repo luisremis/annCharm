@@ -11,7 +11,7 @@
 #include "Neuron.h"
 #include "neuralNetwork.decl.h"
 
-#define ITERATION (1999)
+#define ITERATION (2000)
 #define LB_FREQ   (10)
 #define BACKWARD_FREQ (1)
 
@@ -44,8 +44,11 @@ class Main: public CBase_Main {
     int iteration;
     std::string imageFile;
     std::string labelFile;
+    int phase;
 
     Main(CkArgMsg* m) {
+
+      phase = 0 ; //Traning first
 
       mainProxy = thisProxy;
       inputNeurons        = atoi(m->argv[1]);
@@ -120,7 +123,6 @@ class Main: public CBase_Main {
       //initOracle();
 
       layerProxies.at(0).setInputVector(fullInputVector);
-
     }
 
     void initOracle(){
@@ -179,14 +181,19 @@ class Main: public CBase_Main {
         // Set inputVector for Layer 0
         //Load Input Image Vector for Layer 0
 
-        //imageFile = testImageFile;
-        //labelFile = testLabelFile; 
-
-        //readFromFiles();
-        CkPrintf("*** Done *** \n");
-        CkExit();
+        /*if (phase == 0){
+            imageFile = testImageFile;
+             //labelFile = testLabelFile;  //Maybe no need
+             readFromFiles();
+             CkPrintf("*** Traning Done *** \n");
+             phase = 1;
+             counter = 0;
+        }
+        else*/{
+            CkPrintf("*** Done *** \n");
+            CkExit();
+        }
       }
-
     }
 
     void setIteration(unsigned int iter){
@@ -227,7 +234,6 @@ class Main: public CBase_Main {
       CkPrintf("EXIT \n");
       CkExit();
     }
-
 };
 
 // This class represent the cells of the simulation.
@@ -246,6 +252,7 @@ class NeuronGroup : public CBase_NeuronGroup {
 
     unsigned int layerIndex;
     int phase;
+    int maxIterations;
     vector<Neuron> neurons; //Maybe not needed
     vector<double> incomingAj; //Incoming values
     vector<double> values;
@@ -261,6 +268,7 @@ class NeuronGroup : public CBase_NeuronGroup {
       iteration = 0;
       usesAtSync=CmiTrue;
       phase = 0;
+      maxIterations = ITERATION;
 
       int neuronsPreviousLayer, neuronsNextLayer;
 
@@ -390,8 +398,31 @@ class NeuronGroup : public CBase_NeuronGroup {
 	    }
     }
 
-    void exportErrors(vector<vector<double> > &errorBuffer) {
-      //errorBuffer.push_back(this->errors);
+    void printResult() {
+      //Final phase
+      collectValues();
+      stringstream result;
+      double max; 
+      int number;
+      for (int i = 0; i < values.size(); ++i)
+      {
+        if (i == 0){
+          max = values.at(i);
+          number = 0;
+        }
+        else{
+          if (values.at(i) > max)
+          {
+            max = values.at(i);
+            number = i;
+          }
+        }
+        result << values.at(i) << " "; //(int)round(values.at(i)) << " ";
+        //result << (int)round(values.at(i)) << " ";
+      }
+      //std::string aux = result.str();
+      //CkPrintf("Output Layer for iteration %3d : %s \n", iteration, aux.c_str());
+      CkPrintf("Output iteration %04d : %d - %f - O: %d - %d \n", iteration, number, max,(int) oracle[iteration], number == (int) oracle[iteration]? 1:0);
     }
   private:
 

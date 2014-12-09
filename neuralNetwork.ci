@@ -23,8 +23,6 @@ mainmodule neuralNetwork {
       Reduction target after the forward operation
       Change internal states of the neurons for backpropagation
     */
-    //entry [reductiontarget] void doneForwardContribution();
-    //entry [reductiontarget] void doneBackwardContribution();
       entry [reductiontarget] void totalNeurons(int total);
       entry [reductiontarget] void creationDone();
       entry [reductiontarget] void initializationDone();
@@ -32,7 +30,6 @@ mainmodule neuralNetwork {
       entry [reductiontarget] void backwardComplete();
       entry [reductiontarget] void done();
       entry [reductiontarget] void iterationsCompleted();
-
       entry void setIteration(unsigned int iter);
   };
 
@@ -48,18 +45,16 @@ mainmodule neuralNetwork {
     entry void collectValues();
     entry void collectValues(int image_id);
     entry void calculateOutputError();
-
     entry void collectErrors(int nIndex);
     entry void updateWeight();
-    //entry void exportErrors(vector<vector<double>> &errorBuffer);
-    //entry void updateWeight();
+    entry void printResult();
     entry void setInputVector( std::vector< std::vector<double> >);
 
     //Main computation
     entry void run() {
 
         //Iteration is the number of images we have as input.
-        for(iteration = 0; iteration<ITERATION; iteration++) {
+        for(iteration = 0; iteration<maxIterations; iteration++) {
 	   
 	  if (layerIndex == 0) // Input Layer
           {
@@ -68,45 +63,43 @@ mainmodule neuralNetwork {
              This is loading each pixel of the image, to be send
              to the input layer.
             */
-            if(iteration != 0 /* &&  iteration % BACKWARD_FREQ == 1 && phase == 0 */) { 
-              	for(blockT = 0; blockT < mapLayerToNeurons[layerIndex+1]; blockT++) {
-		 when sendBackward[iteration-1](int iter, int layer, int neuronId, std::vector<double> errors)
-                 serial {
-
-                 }
+            if(iteration != 0 && phase == 0/* &&  iteration % BACKWARD_FREQ == 1 */) { 
+              //for(blockT = 0; blockT < mapLayerToNeurons[layerIndex+1]; blockT++) {
+              forall [block](0: mapLayerToNeurons[layerIndex+1] - 1,1){ //Receiving from all the chares in layer-1
+		              when sendBackward[iteration-1](int iter, int layer, int neuronId, std::vector<double> errors)
+                  serial {
+                      // Do nothing, just wait for messages to arrive.
+                  }
               }
               if(thisIndex == 0){
                 serial {
-                  CkPrintf("Recieved End Message for Backward Phase %d\n", iteration);
+                  //CkPrintf("Recieved End Message for Backward Phase %d\n", iteration);
                 }
               }
 
-
             }
             serial {
-	      //CkPrintf("Starting send forward for iteration %d\n", iteration);
-	      collectValues(iteration);
-              layerProxies.at(1).sendForward(iteration, layerIndex, thisIndex, values );
+	              //if(phase == 1 && thisIndex == 0)
+                //CkPrintf("Starting Testing phase :) %d \n", iteration);
+	              collectValues(iteration);
+                layerProxies.at(1).sendForward(iteration, layerIndex, thisIndex, values );
             }
           }
 
           if (layerIndex > 0 && layerIndex < totalLayers - 1) //Hidden Layers
           {
-
             forall [block](0: mapLayerToNeurons[layerIndex - 1]/neuronsPerChare -1,1) //Receiving from all the chares in layer-1
               when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> incoming  )
                 serial "receiveAndsendValues" 
                 {   //Receives from layer layerIndex - 1
-
                   for (i = 0; i < incoming.size(); ++i)
                   {
                     incomingAj.at(groupId*neuronsPerChare + i)=incoming.at(i);
                   }
-
                   //CkPrintf("Layer %2d Group %2d Receiving %d from layer %2d \n", layerIndex, thisIndex, incoming.size(), layer);
                 }
 
-            serial {
+            serial "activate in forward"{
                 //Do the weight operation and deliver the weight value to each cell
                 activate();
                 collectValues();
@@ -120,50 +113,48 @@ mainmodule neuralNetwork {
               when sendForward[iteration](int iter, int layer, int groupId, std::vector<double> incoming  )
                 //Receives from layer thisLayerIndex - 1
                 serial "recevingLastLayer" {
-                   char valuesStr[10000];
-                   valuesStr[0] = '\0';
+                   //char valuesStr[10000];
+                   //valuesStr[0] = '\0';
                    for (i = 0; i < incoming.size(); ++i)
                    {
                       incomingAj.at(groupId*neuronsPerChare + i) = incoming.at(i);
-            	      char numStr[50];
-            	      sprintf(numStr, " %lf", incoming.at(i));
-                      strcat(valuesStr, numStr);
+            	        //char numStr[50];
+            	        //sprintf(numStr, " %lf", incoming.at(i));
+                      //strcat(valuesStr, numStr);
                    }
-                   CkPrintf("Layer %2d Group: %d Receiving [%d-%d] %s from Layer %2d Group %d\n", layerIndex, thisIndex, groupId*neuronsPerChare, ((groupId+1)*neuronsPerChare)-1, valuesStr, layer, groupId);
+                   //if (phase == 1)
+                      //CkPrintf("Layer %2d Group: %d Receiving [%d-%d] %s from Layer %2d Group %d\n", layerIndex, thisIndex, groupId*neuronsPerChare, ((groupId+1)*neuronsPerChare)-1, valuesStr, layer, groupId);
                 }
+	          }
 
-	     }
-                serial "calculatingError"{
-                  activate();
-                  calculateOutputError();
-
-                  if (true) //Test Phase
-                  {
-                    //Final phase
-                    collectValues();
-                    stringstream result;
-                    for (int i = 0; i < values.size(); ++i)
-                    {
-                      result << values.at(i) << " "; //(int)round(values.at(i)) << " ";
-                      //result << (int)round(values.at(i)) << " ";
-                    }
-                    std::string aux = result.str();
-                    CkPrintf("Output Layer for iteration %3d : %s \n", iteration, aux.c_str());
-                  } 
-                } 
+            serial "activating Last and calculatingError"{
+              activate();
+              calculateOutputError();
+	      //printResult();
+   	      /*
+              if (phase == 0) //Test Phase
+              {
+		printResult();
+                CkPrintf("Training iteration completed %04d \n", iteration);
+              }
+              else if (phase == 1){ //Test phase
+                printResult();
+              } 
+	      */
+            } 
           }
 
-          if (iteration % BACKWARD_FREQ == 0 /* && iteration != 0 && phase == 0 */)
+          if (iteration % BACKWARD_FREQ == 0 && phase == 0 ) /* && iteration != 0 for periodic*/
           {
-
             if (layerIndex > 0 && layerIndex < totalLayers - 1) //Hidden Layers
             {
               //recieve errors from all neurons in next layer and assign to appropriate incomingErr
-              for(blockT = 0; blockT < mapLayerToNeurons[layerIndex+1]; blockT++) { 
-		 when sendBackward[iteration](int iter, int layer, int neuronId, std::vector<double> errors)
-                  serial {
+              //for(blockT = 0; blockT < mapLayerToNeurons[layerIndex+1]; blockT++) { 
+              forall [block](0: mapLayerToNeurons[layerIndex+1] - 1,1){ //Receiving from all the chares in layer-1
+		              when sendBackward[iteration](int iter, int layer, int neuronId, std::vector<double> errors)
+                  serial "receiving errors"{
                     //Receives from layer layerIndex + 1
-		    for(j_ci = 0; j_ci < neuronsPerChare; j_ci++) {
+		                for(j_ci = 0; j_ci < neuronsPerChare; j_ci++) {
                       //In their neuronId, they need to take corresponding error
                       incomingErrs[j_ci][neuronId] = errors.at(thisIndex*neuronsPerChare + j_ci);
                     } 
@@ -171,18 +162,17 @@ mainmodule neuralNetwork {
                   }
               }
 
-
-              serial {
+              serial "updating weight"{
                 /* char debugStr[500];
-        	debugStr[0] = '\0';
-	        char numStr[50];
-                for(nIndex_ci = 0; nIndex_ci < incomingErrs[0].size(); nIndex_ci++) {
-	        	sprintf(numStr, " %lf", incomingErrs[0][nIndex_ci]);
-			strcat(debugStr, numStr);
-		} 
-                CkPrintf("!!!!!Layer: %d, Neuron: %d, Error Vector: %s\n", layerIndex, thisIndex, debugStr);
-                */
-		//Calculate the errors for this layer and update weights
+                	debugStr[0] = '\0';
+        	        char numStr[50];
+                  for(nIndex_ci = 0; nIndex_ci < incomingErrs[0].size(); nIndex_ci++) {
+        	        	sprintf(numStr, " %lf", incomingErrs[0][nIndex_ci]);
+        			       strcat(debugStr, numStr);
+        		      } 
+                  CkPrintf("!!!!!Layer: %d, Neuron: %d, Error Vector: %s\n", layerIndex, thisIndex, debugStr);
+                  */
+		            //Calculate the errors for this layer and update weights
                 updateWeight();
                 for(nIndex_ci = 0; nIndex_ci < neuronsPerChare; nIndex_ci++) 
                 {
@@ -190,39 +180,33 @@ mainmodule neuralNetwork {
                   //CkPrintf("**** Sending from Layer: %d, Neuron Id: %d, Err Vec Size: %d\n", layerIndex, thisIndex*neuronsPerChare+nIndex_ci, outgoingErrs.size());
                   layerProxies.at(layerIndex - 1).sendBackward(iteration, layerIndex, thisIndex*neuronsPerChare + nIndex_ci, outgoingErrs);
                 }
-
               }
             }
 
             if (layerIndex == totalLayers - 1) //output Layer
             {
-              //serial {
-              //  CkPrintf("Contributing to forward complete Iteration %2d \n",  iteration);
-              //  CkCallback cb(CkReductionTarget(Main, forwardComplete), mainProxy);
-              //  contribute(cb); //Go to backward face every BACKWARD_FREQ iterations
-              //}
-              serial {
+              serial "update weight last Layer"{
                 //Error has been updated in the forward phase
                 updateWeight();
-                for(nIndex_ci = 0; nIndex_ci < neurons.size(); nIndex_ci++) { 
-
+                for(nIndex_ci = 0; nIndex_ci < neurons.size(); nIndex_ci++) 
+                { 
                   collectErrors(nIndex_ci);
-		  //CkPrintf("Sending from Layer: %d, Neuron Id: %d, Err Vec Size: %d\n", layerIndex, thisIndex*neuronsPerChare+nIndex_ci, outgoingErrs.size());
-		  layerProxies.at(layerIndex-1).sendBackward(iteration, layerIndex, (thisIndex*neuronsPerChare)+nIndex_ci, outgoingErrs);
-
+              	  //CkPrintf("Sending from Layer: %d, Neuron Id: %d, Err Vec Size: %d\n", layerIndex, thisIndex*neuronsPerChare+nIndex_ci, outgoingErrs.size());
+              	  layerProxies.at(layerIndex-1).sendBackward(iteration, layerIndex, (thisIndex*neuronsPerChare)+nIndex_ci, outgoingErrs);
                 }
               }
            } 
         }//end of backward phase
 
-        }//end of the iteration loop
+      }//end of the iteration loop
 
-        serial { //All stages completed. Call for new images.
-          //CkPrintf("Contributing to forward complete Iteration %2d \n",  iteration);
-          phase = 1;
-          CkCallback cb(CkReductionTarget(Main, iterationsCompleted), mainProxy);
-          contribute(cb); //Go to backward face every BACKWARD_FREQ iterations
-        }
+      serial { //All stages completed. Call for new images.
+        //CkPrintf("Contributing to forward complete Iteration %2d \n",  iteration);
+        phase = 1;
+        maxIterations = 5000; //We must find a more elegant way to set this value. 
+        CkCallback cb(CkReductionTarget(Main, iterationsCompleted), mainProxy);
+        contribute(cb); //Go to backward face every BACKWARD_FREQ iterations
+      }
 
     };//end of runForward
 
